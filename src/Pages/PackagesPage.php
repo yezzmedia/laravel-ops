@@ -5,13 +5,23 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
+use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 
 /**
  * Curates package-level operator visibility for the installed platform.
  */
-final class PackagesPage extends OpsPage
+final class PackagesPage extends OpsPage implements HasTable
 {
+    use InteractsWithTable;
+
     protected static string $opsSurface = 'packages';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-cube';
@@ -24,13 +34,92 @@ final class PackagesPage extends OpsPage
 
     protected string $view = 'ops::pages.packages-page';
 
-    /**
-     * @var list<array{name: string, vendor: string, description: string, enabled: bool, priority: ?int, featureCount: int, entryPoints: list<string>}>
-     */
-    public array $packages = [];
-
-    public function mount(): void
+    public function table(Table $table): Table
     {
-        $this->packages = app(OpsPackageOverviewResolver::class)->resolve();
+        return $table
+            ->heading('Platform packages')
+            ->description('Curated package readiness, ownership, and operator-facing entry points.')
+            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+                $records = $this->packageRecords();
+
+                if (filled($search)) {
+                    $needle = mb_strtolower(trim((string) $search));
+
+                    $records = $records->filter(static function (array $record) use ($needle): bool {
+                        return str_contains(mb_strtolower($record['name']), $needle)
+                            || str_contains(mb_strtolower($record['vendor']), $needle)
+                            || str_contains(mb_strtolower($record['description']), $needle)
+                            || str_contains(mb_strtolower($record['entryPointsLabel']), $needle);
+                    })->values();
+                }
+
+                $sortColumn ??= 'name';
+                $sortDirection ??= 'asc';
+
+                $records = $records
+                    ->sortBy($sortColumn, SORT_NATURAL, $sortDirection === 'desc')
+                    ->values();
+
+                return new LengthAwarePaginator(
+                    items: $records->forPage($page, $recordsPerPage)->values(),
+                    total: $records->count(),
+                    perPage: $recordsPerPage,
+                    currentPage: $page,
+                );
+            })
+            ->defaultSort('name')
+            ->searchable()
+            ->paginated([10, 25, 50])
+            ->columns([
+                TextColumn::make('name')
+                    ->label('Package')
+                    ->description(fn (array $record): string => $record['description'])
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('vendor')
+                    ->badge()
+                    ->color('gray')
+                    ->sortable(),
+                IconColumn::make('enabled')
+                    ->label('Enabled')
+                    ->boolean()
+                    ->sortable(),
+                TextColumn::make('featureCount')
+                    ->label('Features')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('priority')
+                    ->formatStateUsing(fn (?int $state): string => $state === null ? 'n/a' : (string) $state)
+                    ->sortable(),
+                TextColumn::make('entryPointsLabel')
+                    ->label('Entry points')
+                    ->wrap(),
+            ])
+            ->emptyStateHeading('No platform packages are currently registered.');
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            InstalledPackagesWidget::class,
+        ];
+    }
+
+    /**
+     * @return Collection<int, array{name: string, vendor: string, description: string, enabled: bool, priority: ?int, featureCount: int, entryPoints: list<string>, entryPointsLabel: string}>
+     */
+    private function packageRecords(): Collection
+    {
+        return collect(app(OpsPackageOverviewResolver::class)->resolve())
+            ->map(static function (array $record): array {
+                $entryPoints = $record['entryPoints'];
+
+                return [
+                    ...$record,
+                    'entryPointsLabel' => $entryPoints === []
+                        ? 'No package pages'
+                        : implode(', ', $entryPoints),
+                ];
+            });
     }
 }
