@@ -1,0 +1,167 @@
+# Laravel Ops
+
+`yezzmedia/laravel-ops` is the shared operations panel package for the Yezz Media Laravel platform.
+
+It provides a Filament-based `/ops` panel with package, feature, diagnostics, audit, and access-facing operational surfaces on top of the normalized runtime exposed by foundation and, when installed, `yezzmedia/laravel-access`.
+
+## Version
+
+Current release: `0.1.0`
+
+## Requirements
+
+- PHP `^8.4`
+- Laravel `^13.0` components
+- `filament/filament ^5.0`
+- `spatie/laravel-package-tools ^1.93`
+- `yezzmedia/laravel-foundation ^0.1`
+
+Optional:
+
+- `yezzmedia/laravel-access ^0.1` for the preferred ops authorization and access-management workflows
+- `spatie/laravel-activitylog` for audit-facing surfaces
+- `spatie/laravel-health` for richer diagnostics posture
+
+## Installation
+
+Install the package in the consuming Laravel application:
+
+```bash
+composer require yezzmedia/laravel-ops
+```
+
+The service providers are auto-discovered:
+
+- `YezzMedia\Ops\OpsServiceProvider`
+- `YezzMedia\Ops\OpsPanelProvider`
+
+## Configuration
+
+Publish the package config when you need to override panel defaults:
+
+```bash
+php artisan vendor:publish --provider="YezzMedia\Ops\OpsServiceProvider" --tag="config"
+```
+
+Default configuration:
+
+```php
+return [
+    'panel' => [
+        'id' => 'ops',
+        'path' => 'ops',
+        'guard' => null,
+    ],
+];
+```
+
+## What The Package Provides
+
+### Shared ops panel shell
+
+`OpsPanelProvider` defines a dedicated Filament panel mounted at `/ops`.
+
+- uses the configured or resolved host auth guard
+- applies a dedicated ops authorization middleware boundary
+- registers the stable V1 ops pages and widgets
+
+### Stable ops pages
+
+The package currently provides these operator-facing pages:
+
+- `OpsDashboard`
+- `PackagesPage`
+- `FeaturesPage`
+- `SystemHealthPage`
+- `AuditTrailPage`
+- `PermissionsPage`
+- `AccessManagementPage`
+
+These surface the following routes:
+
+- `/ops`
+- `/ops/packages`
+- `/ops/features`
+- `/ops/diagnostics`
+- `/ops/audit`
+- `/ops/access/permissions`
+- `/ops/access/manage`
+
+### Widgets and summaries
+
+The dashboard currently includes:
+
+- `InstalledPackagesWidget`
+- `FailingChecksWidget`
+- `RecentActivityWidget`
+
+These build on the package summary, diagnostics summary, and recent activity resolver layers instead of duplicating query or registry logic in widgets.
+
+### Authorization model
+
+Ops declares a stable permission surface through foundation:
+
+- `ops.panel.access`
+- `ops.dashboard.view`
+- `ops.packages.view`
+- `ops.features.view`
+- `ops.diagnostics.view`
+- `ops.runtime.view`
+- `ops.audit.view`
+- `ops.access.view`
+- `ops.access.manage`
+
+When `yezzmedia/laravel-access` is not installed, ops falls back to reduced mode and uses the host-owned `viewOpsPanel` / `canAccessPanel()` boundary.
+
+When access is installed, the ops panel enforces the declared access permissions and unlocks the access-facing surfaces.
+
+### Diagnostics and runtime posture
+
+`SystemHealthPage` and the diagnostics widget stack build on:
+
+- `RunSystemDiagnosticsAction`
+- `OpsDiagnosticsSummaryResolver`
+- `OpsDiagnosticsCacheManager`
+- `OpsRuntimePostureResolver`
+
+This keeps diagnostics collection and runtime posture aggregation in dedicated support classes instead of inside the page layer.
+
+### Audit and access bridges
+
+`AuditTrailPage` uses the recent-activity resolver stack and degrades cleanly when no supported audit backend exists.
+
+`PermissionsPage` and `AccessManagementPage` use `OpsAccessBridge` to read from access-owned services rather than re-implementing permission-store or role-management logic inside ops.
+
+Those access-facing surfaces can:
+
+- inspect permission-store readiness
+- synchronize declared permissions
+- synchronize hinted roles
+- assign persisted roles to a user
+- remove persisted roles from a user
+
+The actual write operations remain delegated to access-owned runtime services.
+
+## Foundation integration
+
+Ops registers itself with foundation through `OpsPlatformPackage`.
+
+That package descriptor currently provides:
+
+- package metadata for `yezzmedia/laravel-ops`
+- the stable ops permission declarations
+- an explicit ops-module surface, currently empty for V1
+
+## Development
+
+Available package scripts:
+
+```bash
+composer test
+composer analyse
+composer format
+```
+
+## License
+
+MIT
