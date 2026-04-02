@@ -25,13 +25,8 @@ use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
 use YezzMedia\Ops\Tests\Fixtures\TestOpsUser;
 use YezzMedia\Ops\Widgets\ApplicationRuntimeWidget;
-use YezzMedia\Ops\Widgets\AuditStatusWidget;
-use YezzMedia\Ops\Widgets\DiagnosticsPostureWidget;
 use YezzMedia\Ops\Widgets\DriversRuntimeWidget;
-use YezzMedia\Ops\Widgets\FailingChecksWidget;
-use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\IntegrationsRuntimeWidget;
-use YezzMedia\Ops\Widgets\RecentActivityWidget;
 
 it('loads the read-oriented ops pages in reduced mode', function (): void {
     $user = TestOpsUser::fixture(['viewOpsPanel']);
@@ -47,6 +42,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $page->mount();
 
     $table = $page->table(Table::make($page));
+    $heroSummary = $page->featureHeroSummary();
 
     expect($page->features)->toHaveCount(5)
         ->and(array_column($page->features, 'name'))->toBe([
@@ -55,6 +51,14 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
             'ops.features',
             'ops.packages',
             'ops.runtime',
+        ])
+        ->and($heroSummary)->toBe([
+            'eyebrow' => 'Ops visibility',
+            'heading' => 'Platform feature inventory',
+            'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
+            'featureCount' => 5,
+            'featurePackageCount' => 1,
+            'featuresWithEntryPointsCount' => 0,
         ])
         ->and($table->getHeading())->toBe('Platform features')
         ->and($table->getDescription())->toBe('Registered platform features with package ownership and related operator entry points.')
@@ -65,7 +69,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $diagnosticsPage->mount();
 
     $diagnosticsTable = $diagnosticsPage->table(Table::make($diagnosticsPage));
-    $headerWidgets = (fn (): array => $this->getHeaderWidgets())->call($diagnosticsPage);
+    $diagnosticsHeroSummary = $diagnosticsPage->diagnosticsHeroSummary();
     $footerWidgets = (fn (): array => $this->getFooterWidgets())->call($diagnosticsPage);
 
     expect($diagnosticsPage->summary)->toHaveKeys([
@@ -80,13 +84,14 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         'auditInstalled',
         'checks',
     ])
+        ->and($diagnosticsHeroSummary)->toMatchArray([
+            'eyebrow' => 'Ops diagnostics',
+            'heading' => 'System health posture',
+            'description' => 'Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.',
+        ])
         ->and($diagnosticsTable->getHeading())->toBe('Doctor checks')
         ->and($diagnosticsTable->getDescription())->toBe('Curated diagnostics posture from approved health sources.')
         ->and(array_keys($diagnosticsTable->getColumns()))->toBe(['key', 'package', 'status', 'message'])
-        ->and($headerWidgets)->toBe([
-            FailingChecksWidget::class,
-            DiagnosticsPostureWidget::class,
-        ])
         ->and($footerWidgets)->toBe([
             ApplicationRuntimeWidget::class,
             DriversRuntimeWidget::class,
@@ -97,7 +102,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $auditPage->mount();
 
     $auditTable = $auditPage->table(Table::make($auditPage));
-    $auditHeaderWidgets = (fn (): array => $this->getHeaderWidgets())->call($auditPage);
+    $auditHeroSummary = $auditPage->auditHeroSummary();
 
     expect($auditPage->summary)->toHaveKeys([
         'status',
@@ -107,13 +112,14 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         'latestAt',
         'items',
     ])
+        ->and($auditHeroSummary)->toMatchArray([
+            'eyebrow' => 'Ops audit',
+            'heading' => 'Audit activity posture',
+            'description' => 'Review audit backend availability, recent operator-visible activity volume, and the newest event currently available through the configured backend.',
+        ])
         ->and($auditTable->getHeading())->toBe('Recent audit activity')
         ->and($auditTable->getDescription())->toBe('Privileged and operator-visible activity from the configured audit backend.')
-        ->and(array_keys($auditTable->getColumns()))->toBe(['description', 'event', 'logName', 'loggedAt'])
-        ->and($auditHeaderWidgets)->toBe([
-            RecentActivityWidget::class,
-            AuditStatusWidget::class,
-        ]);
+        ->and(array_keys($auditTable->getColumns()))->toBe(['description', 'event', 'logName', 'loggedAt']);
 });
 
 it('loads registered feature records on the features page', function (): void {
@@ -148,6 +154,7 @@ it('loads registered feature records on the features page', function (): void {
 
     $page = app(FeaturesPage::class);
     $page->mount();
+    $heroSummary = $page->featureHeroSummary();
 
     /** @var Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, sortKey: string}> $featureRecords */
     $featureRecords = (fn (): Collection => $this->featureRecords())->call($page);
@@ -155,6 +162,14 @@ it('loads registered feature records on the features page', function (): void {
 
     expect($page->features)->toHaveCount(6)
         ->and(collect($page->features)->contains(fn (array $feature): bool => $feature['name'] === 'content.pages'))->toBeTrue()
+        ->and($heroSummary)->toBe([
+            'eyebrow' => 'Ops visibility',
+            'heading' => 'Platform feature inventory',
+            'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
+            'featureCount' => 6,
+            'featurePackageCount' => 2,
+            'featuresWithEntryPointsCount' => 0,
+        ])
         ->and($featureRecord['entryPointsLabel'])->toBe('No package pages')
         ->and($featureRecord['packageDescription'])->toBe('Content package.')
         ->and($featureRecord['label'])->toBe('Content Pages')
@@ -202,10 +217,15 @@ it('builds a compact package hero summary for the packages page', function (): v
     $page = app(PackagesPage::class);
 
     $table = $page->table(Table::make($page));
-    $headerWidgets = (fn (): array => $this->getHeaderWidgets())->call($page);
+    $heroSummary = $page->packagesHeroSummary();
 
-    expect($headerWidgets)->toBe([
-        InstalledPackagesWidget::class,
+    expect($heroSummary)->toBe([
+        'eyebrow' => 'Ops inventory',
+        'heading' => 'Platform package inventory',
+        'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
+        'packageCount' => 3,
+        'enabledPackageCount' => 3,
+        'entryPointPackageCount' => 1,
     ])
         ->and($table->getHeading())->toBe('Platform packages')
         ->and($table->getDescription())->toBe('Curated package readiness, ownership, and operator-facing entry points.');
@@ -267,6 +287,7 @@ it('builds package posture and contribution counts for the packages page', funct
     $page = app(PackagesPage::class);
 
     $table = $page->table(Table::make($page));
+    $heroSummary = $page->packagesHeroSummary();
     /** @var Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}> $packageRecords */
     $packageRecords = (fn (): Collection => $this->packageRecords())->call($page);
 
@@ -274,6 +295,14 @@ it('builds package posture and contribution counts for the packages page', funct
     $catalogRecord = $packageRecords->sole('name', 'yezzmedia/laravel-catalog');
 
     expect(PackageDetailsPage::shouldRegisterNavigation())->toBeFalse()
+        ->and($heroSummary)->toBe([
+            'eyebrow' => 'Ops inventory',
+            'heading' => 'Platform package inventory',
+            'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
+            'packageCount' => 4,
+            'enabledPackageCount' => 3,
+            'entryPointPackageCount' => 1,
+        ])
         ->and($table->getHeading())->toBe('Platform packages')
         ->and(array_keys($table->getColumns()))->toBe([
             'name',

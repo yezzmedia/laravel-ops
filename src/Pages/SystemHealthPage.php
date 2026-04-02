@@ -6,7 +6,12 @@ namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -20,9 +25,7 @@ use YezzMedia\Ops\Support\OpsAuthorizationResolver;
 use YezzMedia\Ops\Support\OpsDiagnosticsSummaryResolver;
 use YezzMedia\Ops\Support\OpsRuntimePostureResolver;
 use YezzMedia\Ops\Widgets\ApplicationRuntimeWidget;
-use YezzMedia\Ops\Widgets\DiagnosticsPostureWidget;
 use YezzMedia\Ops\Widgets\DriversRuntimeWidget;
-use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\IntegrationsRuntimeWidget;
 
 /**
@@ -153,14 +156,6 @@ final class SystemHealthPage extends OpsPage implements HasTable
             ->emptyStateHeading('No doctor checks are currently available.');
     }
 
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            FailingChecksWidget::class,
-            DiagnosticsPostureWidget::class,
-        ];
-    }
-
     protected function getFooterWidgets(): array
     {
         if (! $this->showsRuntime) {
@@ -171,14 +166,6 @@ final class SystemHealthPage extends OpsPage implements HasTable
             ApplicationRuntimeWidget::class,
             DriversRuntimeWidget::class,
             IntegrationsRuntimeWidget::class,
-        ];
-    }
-
-    public function getHeaderWidgetsColumns(): array
-    {
-        return [
-            'md' => 1,
-            'xl' => 2,
         ];
     }
 
@@ -196,6 +183,115 @@ final class SystemHealthPage extends OpsPage implements HasTable
             'summary' => $this->summary,
             'runtime' => $this->runtime,
         ];
+    }
+
+    public function diagnosticsHeroSummary(): array
+    {
+        return [
+            'eyebrow' => 'Ops diagnostics',
+            'heading' => 'System health posture',
+            'description' => 'Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.',
+            'status' => str($this->summary['status'])->headline()->toString(),
+            'statusTone' => $this->diagnosticsStatusTone(),
+            'failingCount' => $this->summary['failingCount'],
+            'warningCount' => $this->summary['warningCount'],
+            'passedCount' => $this->summary['passedCount'],
+            'skippedCount' => $this->summary['skippedCount'],
+            'completedAt' => $this->summary['completedAt'] !== '' ? $this->summary['completedAt'] : 'n/a',
+            'accessMode' => str($this->summary['accessMode'])->headline()->toString(),
+            'healthInstalled' => $this->summary['healthInstalled'] ? 'Installed' : 'Unavailable',
+            'auditInstalled' => $this->summary['auditInstalled'] ? 'Installed' : 'Unavailable',
+        ];
+    }
+
+    public function diagnosticsHeroInfolist(Schema $schema): Schema
+    {
+        return $schema
+            ->state($this->diagnosticsHeroSummary())
+            ->components([
+                Section::make('System health posture')
+                    ->description('Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.')
+                    ->icon(Heroicon::OutlinedQueueList)
+                    ->iconColor('primary')
+                    ->afterHeader([
+                        TextEntry::make('eyebrow')
+                            ->hiddenLabel()
+                            ->badge()
+                            ->icon(Heroicon::OutlinedSparkles)
+                            ->color('primary'),
+                        TextEntry::make('status')
+                            ->hiddenLabel()
+                            ->badge()
+                            ->color(fn (string $state): string => $this->diagnosticsHeroSummary()['statusTone']),
+                    ])
+                    ->schema([
+                        TextEntry::make('failingCount')
+                            ->label('Failing checks')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedExclamationTriangle)
+                            ->iconColor('danger')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Blocking or degraded checks that currently require operator attention.'),
+                        TextEntry::make('warningCount')
+                            ->label('Warnings')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedExclamationCircle)
+                            ->iconColor('warning')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Checks that surfaced warnings without fully failing the current posture.'),
+                        TextEntry::make('passedCount')
+                            ->label('Passed checks')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedCheckCircle)
+                            ->iconColor('success')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Checks that currently pass against the approved diagnostics surface.'),
+                    ])
+                    ->columns(3),
+            ]);
+    }
+
+    public function diagnosticsDetailInfolist(Schema $schema): Schema
+    {
+        return $schema
+            ->state($this->diagnosticsHeroSummary())
+            ->components([
+                Section::make('Diagnostics context')
+                    ->description('Additional operational context for the current diagnostics snapshot and shared integrations.')
+                    ->icon(Heroicon::OutlinedInformationCircle)
+                    ->schema([
+                        TextEntry::make('completedAt')
+                            ->label('Last completed at')
+                            ->helperText('Timestamp of the latest collected diagnostics snapshot.'),
+                        TextEntry::make('skippedCount')
+                            ->label('Skipped checks')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedMinusCircle)
+                            ->iconColor('gray')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Checks that were skipped in the current diagnostics collection.'),
+                        TextEntry::make('accessMode')
+                            ->label('Access mode')
+                            ->badge()
+                            ->color('gray')
+                            ->helperText('Whether diagnostics currently run in reduced mode or access-integrated mode.'),
+                        TextEntry::make('healthInstalled')
+                            ->label('Health backend')
+                            ->badge()
+                            ->color(fn (string $state): string => $state === 'Installed' ? 'success' : 'gray')
+                            ->helperText('Availability of the shared health integration that feeds doctor checks.'),
+                        TextEntry::make('auditInstalled')
+                            ->label('Audit backend')
+                            ->badge()
+                            ->color(fn (string $state): string => $state === 'Installed' ? 'success' : 'gray')
+                            ->helperText('Availability of the audit integration surfaced alongside diagnostics posture.'),
+                    ])
+                    ->columns(3),
+            ]);
     }
 
     public function runDiagnostics(): void
@@ -251,5 +347,22 @@ final class SystemHealthPage extends OpsPage implements HasTable
     private function checkRecords(): Collection
     {
         return collect($this->summary['checks']);
+    }
+
+    private function diagnosticsStatusTone(): string
+    {
+        if ($this->summary['failingCount'] > 0) {
+            return 'danger';
+        }
+
+        if ($this->summary['warningCount'] > 0) {
+            return 'warning';
+        }
+
+        if ($this->summary['passedCount'] > 0) {
+            return 'success';
+        }
+
+        return 'gray';
     }
 }

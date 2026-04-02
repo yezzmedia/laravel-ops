@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -15,7 +21,6 @@ use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
-use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 
 /**
  * Curates package-level operator visibility for the installed platform.
@@ -190,11 +195,62 @@ final class PackagesPage extends OpsPage implements HasTable
         return collect($records->all());
     }
 
-    protected function getHeaderWidgets(): array
+    public function packagesHeroSummary(): array
     {
         return [
-            InstalledPackagesWidget::class,
+            'eyebrow' => 'Ops inventory',
+            'heading' => 'Platform package inventory',
+            'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
+            'packageCount' => $this->packageCount(),
+            'enabledPackageCount' => $this->enabledPackageCount(),
+            'entryPointPackageCount' => $this->entryPointPackageCount(),
         ];
+    }
+
+    public function packagesHeroInfolist(Schema $schema): Schema
+    {
+        return $schema
+            ->state($this->packagesHeroSummary())
+            ->components([
+                Section::make('Platform package inventory')
+                    ->description('Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.')
+                    ->icon(Heroicon::OutlinedCube)
+                    ->iconColor('primary')
+                    ->afterHeader([
+                        TextEntry::make('eyebrow')
+                            ->hiddenLabel()
+                            ->badge()
+                            ->icon(Heroicon::OutlinedSparkles)
+                            ->color('primary'),
+                    ])
+                    ->schema([
+                        TextEntry::make('packageCount')
+                            ->label('Registered packages')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedCube)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Packages currently visible through the approved foundation package registry.'),
+                        TextEntry::make('enabledPackageCount')
+                            ->label('Enabled packages')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedCheckCircle)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Packages that actively participate in capability aggregation.'),
+                        TextEntry::make('entryPointPackageCount')
+                            ->label('With entry points')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Packages that already expose operator-facing entry points in the ops surface.'),
+                    ])
+                    ->columns(3),
+            ]);
     }
 
     /**
@@ -218,5 +274,24 @@ final class PackagesPage extends OpsPage implements HasTable
                 ['name', 'asc'],
             ])
             ->values();
+    }
+
+    private function packageCount(): int
+    {
+        return $this->packageRecords()->count();
+    }
+
+    private function enabledPackageCount(): int
+    {
+        return $this->packageRecords()
+            ->where('enabled', true)
+            ->count();
+    }
+
+    private function entryPointPackageCount(): int
+    {
+        return $this->packageRecords()
+            ->filter(static fn (array $record): bool => $record['entryPoints'] !== [])
+            ->count();
     }
 }

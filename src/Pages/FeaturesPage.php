@@ -5,6 +5,12 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Infolists\Components\TextEntry;
+use Filament\Schemas\Components\Section;
+use Filament\Schemas\Schema;
+use Filament\Support\Enums\FontWeight;
+use Filament\Support\Enums\TextSize;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -12,7 +18,6 @@ use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use YezzMedia\Ops\Support\OpsFeatureOverviewResolver;
-use YezzMedia\Ops\Widgets\RegisteredFeaturesWidget;
 
 /**
  * Surfaces a feature-oriented platform overview for operators.
@@ -103,11 +108,62 @@ final class FeaturesPage extends OpsPage implements HasTable
             ->emptyStateHeading('No platform features are currently registered.');
     }
 
-    protected function getHeaderWidgets(): array
+    public function featureHeroSummary(): array
     {
         return [
-            RegisteredFeaturesWidget::class,
+            'eyebrow' => 'Ops visibility',
+            'heading' => 'Platform feature inventory',
+            'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
+            'featureCount' => $this->featureCount(),
+            'featurePackageCount' => $this->featurePackageCount(),
+            'featuresWithEntryPointsCount' => $this->featuresWithEntryPointsCount(),
         ];
+    }
+
+    public function featuresHeroInfolist(Schema $schema): Schema
+    {
+        return $schema
+            ->state($this->featureHeroSummary())
+            ->components([
+                Section::make('Platform feature inventory')
+                    ->description('Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.')
+                    ->icon(Heroicon::OutlinedViewColumns)
+                    ->iconColor('primary')
+                    ->afterHeader([
+                        TextEntry::make('eyebrow')
+                            ->hiddenLabel()
+                            ->badge()
+                            ->icon(Heroicon::OutlinedSparkles)
+                            ->color('primary'),
+                    ])
+                    ->schema([
+                        TextEntry::make('featureCount')
+                            ->label('Registered features')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedViewColumns)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Approved capabilities currently visible through the platform registries.'),
+                        TextEntry::make('featurePackageCount')
+                            ->label('Packages contributing')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedCube)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Packages that currently register at least one platform feature.'),
+                        TextEntry::make('featuresWithEntryPointsCount')
+                            ->label('With entry points')
+                            ->numeric()
+                            ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
+                            ->iconColor('primary')
+                            ->size(TextSize::Large)
+                            ->weight(FontWeight::Bold)
+                            ->helperText('Features whose owning package already exposes related operator entry points.'),
+                    ])
+                    ->columns(3),
+            ]);
     }
 
     /**
@@ -129,5 +185,25 @@ final class FeaturesPage extends OpsPage implements HasTable
                     'sortKey' => sprintf('%s::%s', $record['package'], $record['name']),
                 ];
             });
+    }
+
+    private function featureCount(): int
+    {
+        return count($this->features);
+    }
+
+    private function featurePackageCount(): int
+    {
+        return collect($this->features)
+            ->pluck('package')
+            ->unique()
+            ->count();
+    }
+
+    private function featuresWithEntryPointsCount(): int
+    {
+        return collect($this->features)
+            ->filter(static fn (array $feature): bool => $feature['entryPoints'] !== [])
+            ->count();
     }
 }
