@@ -296,6 +296,142 @@ it('builds package posture and contribution counts for the packages page', funct
         ]);
 });
 
+it('filters package records by package state and contributions', function (): void {
+    /**
+     * @param  list<FeatureDefinition>  $features
+     * @param  list<PermissionDefinition>  $permissions
+     * @param  list<OpsModuleDefinition>  $opsModules
+     */
+    $registerPackage = static function (
+        string $name,
+        string $description,
+        bool $enabled = true,
+        array $features = [],
+        array $permissions = [],
+        array $opsModules = [],
+    ): void {
+        /** @var list<FeatureDefinition> $features */
+        /** @var list<PermissionDefinition> $permissions */
+        /** @var list<OpsModuleDefinition> $opsModules */
+        app(PlatformPackageRegistrar::class)->register(new class($name, $description, $enabled, $features, $permissions, $opsModules) implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
+        {
+            /**
+             * @param  list<FeatureDefinition>  $features
+             * @param  list<PermissionDefinition>  $permissions
+             * @param  list<OpsModuleDefinition>  $opsModules
+             */
+            public function __construct(
+                private readonly string $name,
+                private readonly string $description,
+                private readonly bool $enabled,
+                private readonly array $features,
+                private readonly array $permissions,
+                private readonly array $opsModules,
+            ) {}
+
+            public function metadata(): PackageMetadata
+            {
+                return new PackageMetadata(
+                    name: $this->name,
+                    vendor: 'yezzmedia',
+                    description: $this->description,
+                    packageClass: self::class,
+                    enabled: $this->enabled,
+                );
+            }
+
+            public function featureDefinitions(): array
+            {
+                return $this->features;
+            }
+
+            public function permissionDefinitions(): array
+            {
+                return $this->permissions;
+            }
+
+            public function opsModuleDefinitions(): array
+            {
+                return $this->opsModules;
+            }
+        });
+    };
+
+    $registerPackage(
+        'yezzmedia/laravel-content',
+        'Content package.',
+        features: [
+            new FeatureDefinition('content.pages', 'yezzmedia/laravel-content', 'Content Pages'),
+        ],
+        permissions: [
+            new PermissionDefinition('content.pages.view', 'yezzmedia/laravel-content', 'View content pages'),
+        ],
+        opsModules: [
+            new OpsModuleDefinition('content.settings', 'yezzmedia/laravel-content', 'Content settings', 'page', 'content.pages.view'),
+        ],
+    );
+
+    $registerPackage(
+        'yezzmedia/laravel-blog',
+        'Blog package.',
+        features: [
+            new FeatureDefinition('blog.posts', 'yezzmedia/laravel-blog', 'Blog Posts'),
+        ],
+    );
+
+    $registerPackage('yezzmedia/laravel-docs', 'Docs package.');
+    $registerPackage('yezzmedia/laravel-catalog', 'Catalog package.', enabled: false);
+
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PackagesPage::class);
+    $table = $page->table(Table::make($page));
+
+    /** @var Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}> $packageRecords */
+    $packageRecords = (fn (): Collection => $this->packageRecords())->call($page);
+
+    $enabledPackages = $packageRecords->where('enabled', true)->values();
+    $disabledPackages = $packageRecords->where('enabled', false)->values();
+    $healthyPackages = $packageRecords->where('posture', 'healthy')->values();
+    $limitedPackages = $packageRecords->where('posture', 'limited')->values();
+    $disabledPosturePackages = $packageRecords->where('posture', 'disabled')->values();
+    $featurePackages = $packageRecords->filter(fn (array $record): bool => $record['featureCount'] > 0)->values();
+    $packagesWithoutFeatures = $packageRecords->reject(fn (array $record): bool => $record['featureCount'] > 0)->values();
+    $permissionPackages = $packageRecords->filter(fn (array $record): bool => $record['permissionCount'] > 0)->values();
+    $packagesWithoutPermissions = $packageRecords->reject(fn (array $record): bool => $record['permissionCount'] > 0)->values();
+    $opsModulePackages = $packageRecords->filter(fn (array $record): bool => $record['opsModuleCount'] > 0)->values();
+    $packagesWithoutOpsModules = $packageRecords->reject(fn (array $record): bool => $record['opsModuleCount'] > 0)->values();
+    $entryPointPackages = $packageRecords->filter(fn (array $record): bool => $record['entryPoints'] !== [])->values();
+    $packagesWithoutEntryPoints = $packageRecords->reject(fn (array $record): bool => $record['entryPoints'] !== [])->values();
+
+    $applyFilters = new ReflectionMethod($page, 'applyFilters');
+    $applyFilters->setAccessible(true);
+
+    expect(array_keys($table->getFilters()))->toBe([
+        'enabled',
+        'posture',
+        'has_features',
+        'has_permissions',
+        'has_ops_modules',
+        'has_entry_points',
+    ])
+        ->and($applyFilters->invoke($page, $packageRecords, ['enabled' => ['value' => 'enabled']])->values()->all())->toBe($enabledPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['enabled' => ['value' => 'disabled']])->values()->all())->toBe($disabledPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['posture' => ['value' => 'healthy']])->values()->all())->toBe($healthyPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['posture' => ['value' => 'limited']])->values()->all())->toBe($limitedPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['posture' => ['value' => 'disabled']])->values()->all())->toBe($disabledPosturePackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_features' => ['isActive' => true]])->values()->all())->toBe($featurePackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_features' => ['isActive' => true]])->values()->all())->not->toBe($packagesWithoutFeatures->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_permissions' => ['isActive' => true]])->values()->all())->toBe($permissionPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_permissions' => ['isActive' => true]])->values()->all())->not->toBe($packagesWithoutPermissions->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_ops_modules' => ['isActive' => true]])->values()->all())->toBe($opsModulePackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_ops_modules' => ['isActive' => true]])->values()->all())->not->toBe($packagesWithoutOpsModules->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_entry_points' => ['isActive' => true]])->values()->all())->toBe($entryPointPackages->all())
+        ->and($applyFilters->invoke($page, $packageRecords, ['has_entry_points' => ['isActive' => true]])->values()->all())->not->toBe($packagesWithoutEntryPoints->all());
+});
+
 it('loads package details for one registered package', function (): void {
     app(PlatformPackageRegistrar::class)->register(new class implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
     {

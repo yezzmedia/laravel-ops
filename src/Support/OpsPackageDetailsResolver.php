@@ -51,6 +51,7 @@ final class OpsPackageDetailsResolver
             throw new NotFoundHttpException(sprintf('Package [%s] is not available in the ops package overview.', $packageName));
         }
 
+        /** @var list<array{name: string, label: string, description: ?string}> $features */
         $features = $this->features->forPackage($packageName)
             ->sortBy('name')
             ->map(static fn ($feature): array => [
@@ -61,6 +62,7 @@ final class OpsPackageDetailsResolver
             ->values()
             ->all();
 
+        /** @var list<array{name: string, label: string, description: ?string}> $permissions */
         $permissions = $this->permissions->forPackage($packageName)
             ->sortBy('name')
             ->map(static fn ($permission): array => [
@@ -71,6 +73,7 @@ final class OpsPackageDetailsResolver
             ->values()
             ->all();
 
+        /** @var list<array{key: string, label: string, type: string, permissionHint: ?string}> $opsModules */
         $opsModules = $this->opsModules->forPackage($packageName)
             ->sortBy('key')
             ->map(static fn ($module): array => [
@@ -82,12 +85,13 @@ final class OpsPackageDetailsResolver
             ->values()
             ->all();
 
+        /** @var list<array{label: string, permissionHint: ?string, url: ?string}> $entryPoints */
         $entryPoints = collect($this->navigation->resolve()['Packages'][$packageName] ?? [])
             ->sortBy('label')
             ->map(static fn (array $entryPoint): array => [
                 'label' => $entryPoint['label'],
                 'permissionHint' => $entryPoint['permissionHint'],
-                'url' => Arr::get($entryPoint, 'url'),
+                'url' => is_string(Arr::get($entryPoint, 'url')) ? Arr::get($entryPoint, 'url') : null,
             ])
             ->values()
             ->all();

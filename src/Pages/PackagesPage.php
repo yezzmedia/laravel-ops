@@ -9,6 +9,8 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -39,8 +41,10 @@ final class PackagesPage extends OpsPage implements HasTable
         return $table
             ->heading('Platform packages')
             ->description('Curated package readiness, ownership, and operator-facing entry points.')
-            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+            ->records(function (array $filters, ?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
                 $records = $this->packageRecords();
+
+                $records = $this->applyFilters($records, $filters);
 
                 if (filled($search)) {
                     $needle = mb_strtolower(trim((string) $search));
@@ -70,6 +74,29 @@ final class PackagesPage extends OpsPage implements HasTable
             ->defaultSort('name')
             ->recordUrl(fn (array $record): string => PackageDetailsPage::getUrl(['package' => $record['name']]))
             ->searchable()
+            ->filters([
+                SelectFilter::make('enabled')
+                    ->label('Enabled')
+                    ->options([
+                        'enabled' => 'Enabled',
+                        'disabled' => 'Disabled',
+                    ]),
+                SelectFilter::make('posture')
+                    ->label('Posture')
+                    ->options([
+                        'healthy' => 'Healthy',
+                        'limited' => 'Limited',
+                        'disabled' => 'Disabled',
+                    ]),
+                Filter::make('has_features')
+                    ->label('Has features'),
+                Filter::make('has_permissions')
+                    ->label('Has permissions'),
+                Filter::make('has_ops_modules')
+                    ->label('Has ops modules'),
+                Filter::make('has_entry_points')
+                    ->label('Has entry points'),
+            ])
             ->paginated([10, 25, 50])
             ->columns([
                 TextColumn::make('name')
@@ -112,6 +139,55 @@ final class PackagesPage extends OpsPage implements HasTable
                     ->wrap(),
             ])
             ->emptyStateHeading('No platform packages are currently registered.');
+    }
+
+    /**
+     * @param  Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}>  $records
+     * @param  array<string, array<string, mixed>>  $filters
+     * @return Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}>
+     */
+    private function applyFilters(Collection $records, array $filters): Collection
+    {
+        $enabled = $filters['enabled']['value'] ?? null;
+        $posture = $filters['posture']['value'] ?? null;
+
+        if (filled($enabled)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['enabled'] === ($enabled === 'enabled'))
+                ->values();
+        }
+
+        if (filled($posture)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['posture'] === $posture)
+                ->values();
+        }
+
+        if ($filters['has_features']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['featureCount'] > 0)
+                ->values();
+        }
+
+        if ($filters['has_permissions']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['permissionCount'] > 0)
+                ->values();
+        }
+
+        if ($filters['has_ops_modules']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['opsModuleCount'] > 0)
+                ->values();
+        }
+
+        if ($filters['has_entry_points']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['entryPoints'] !== [])
+                ->values();
+        }
+
+        return collect($records->all());
     }
 
     protected function getHeaderWidgets(): array
