@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\IconEntry;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Url;
 use YezzMedia\Ops\Support\OpsPackageDetailsResolver;
 
@@ -91,6 +93,17 @@ final class PackageDetailsPage extends OpsPage
         return $this->details['metadata']['description'] !== ''
             ? $this->details['metadata']['description']
             : null;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('backToPackages')
+                ->label('Back to packages')
+                ->icon(Heroicon::OutlinedArrowLeft)
+                ->color('gray')
+                ->url(PackagesPage::getUrl(panel: (string) config('ops.panel.id', 'ops'))),
+        ];
     }
 
     public function packageDetailsInfolist(Schema $schema): Schema

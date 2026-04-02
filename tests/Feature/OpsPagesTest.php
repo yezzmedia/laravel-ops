@@ -492,10 +492,16 @@ it('loads package details for one registered package', function (): void {
     $page = app(PackageDetailsPage::class);
     $page->package = 'yezzmedia/laravel-content';
     $page->mount();
+    $page->cacheInteractsWithHeaderActions();
+    $headerActions = array_values($page->getCachedHeaderActions());
+    $headerAction = $headerActions[0];
 
     expect($page->getTitle())->toBe('yezzmedia/laravel-content')
         ->and($page->getHeading())->toBe('Package details')
         ->and($page->getSubheading())->toBe('Content package.')
+        ->and($headerActions)->toHaveCount(1)
+        ->and($headerAction->getName())->toBe('backToPackages')
+        ->and($headerAction->getUrl())->toBe(PackagesPage::getUrl(panel: (string) config('ops.panel.id', 'ops')))
         ->and($page->details['posture'])->toMatchArray([
             'state' => 'healthy',
             'label' => 'Healthy',
