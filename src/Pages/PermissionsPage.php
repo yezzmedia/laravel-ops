@@ -184,7 +184,7 @@ final class PermissionsPage extends OpsPage implements HasTable
         ];
     }
 
-    public function getHeaderWidgetsColumns(): int|array
+    public function getHeaderWidgetsColumns(): array
     {
         return [
             'md' => 1,

@@ -174,7 +174,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
         ];
     }
 
-    public function getHeaderWidgetsColumns(): int|array
+    public function getHeaderWidgetsColumns(): array
     {
         return [
             'md' => 1,
@@ -182,7 +182,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
         ];
     }
 
-    public function getFooterWidgetsColumns(): int|array
+    public function getFooterWidgetsColumns(): array
     {
         return [
             'md' => 2,

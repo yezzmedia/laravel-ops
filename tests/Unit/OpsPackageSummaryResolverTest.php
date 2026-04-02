@@ -62,7 +62,7 @@ it('builds and caches a curated package summary from foundation registries', fun
         ->and($summary->installedCount)->toBe(4)
         ->and($summary->enabledCount)->toBe(3)
         ->and($summary->disabledCount)->toBe(1)
-        ->and($summary->featurePackageCount)->toBe(1)
+        ->and($summary->featurePackageCount)->toBe(2)
         ->and($summary->entryPointPackageCount)->toBe(1)
         ->and($summary->status)->toBe('warnings')
         ->and(app(OpsPackageSummaryCacheManager::class)->summary())->toBeInstanceOf(OpsPackageSummary::class);

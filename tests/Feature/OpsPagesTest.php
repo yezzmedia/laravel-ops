@@ -48,7 +48,14 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
 
     $table = $page->table(Table::make($page));
 
-    expect($page->features)->toBe([])
+    expect($page->features)->toHaveCount(5)
+        ->and(array_column($page->features, 'name'))->toBe([
+            'ops.audit',
+            'ops.diagnostics',
+            'ops.features',
+            'ops.packages',
+            'ops.runtime',
+        ])
         ->and($table->getHeading())->toBe('Platform features')
         ->and($table->getDescription())->toBe('Registered platform features with package ownership and related operator entry points.')
         ->and(array_keys($table->getColumns()))->toBe(['label', 'package', 'description', 'entryPointsLabel'])
@@ -144,14 +151,15 @@ it('loads registered feature records on the features page', function (): void {
 
     /** @var Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, sortKey: string}> $featureRecords */
     $featureRecords = (fn (): Collection => $this->featureRecords())->call($page);
+    $featureRecord = $featureRecords->sole('name', 'content.pages');
 
-    expect($page->features)->toHaveCount(1)
-        ->and($page->features[0]['name'])->toBe('content.pages')
-        ->and($page->features[0]['label'])->toBe('Content Pages')
-        ->and($page->features[0]['package'])->toBe('yezzmedia/laravel-content')
-        ->and($page->features[0]['description'])->toBe('Manage editorial pages.')
-        ->and($featureRecords->first()['entryPointsLabel'])->toBe('No package pages')
-        ->and($featureRecords->first()['packageDescription'])->toBe('Content package.');
+    expect($page->features)->toHaveCount(6)
+        ->and(collect($page->features)->contains(fn (array $feature): bool => $feature['name'] === 'content.pages'))->toBeTrue()
+        ->and($featureRecord['entryPointsLabel'])->toBe('No package pages')
+        ->and($featureRecord['packageDescription'])->toBe('Content package.')
+        ->and($featureRecord['label'])->toBe('Content Pages')
+        ->and($featureRecord['package'])->toBe('yezzmedia/laravel-content')
+        ->and($featureRecord['description'])->toBe('Manage editorial pages.');
 });
 
 it('builds a compact package hero summary for the packages page', function (): void {
@@ -262,8 +270,8 @@ it('builds package posture and contribution counts for the packages page', funct
     /** @var Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}> $packageRecords */
     $packageRecords = (fn (): Collection => $this->packageRecords())->call($page);
 
-    $contentRecord = $packageRecords->firstWhere('name', 'yezzmedia/laravel-content');
-    $catalogRecord = $packageRecords->firstWhere('name', 'yezzmedia/laravel-catalog');
+    $contentRecord = $packageRecords->sole('name', 'yezzmedia/laravel-content');
+    $catalogRecord = $packageRecords->sole('name', 'yezzmedia/laravel-catalog');
 
     expect(PackageDetailsPage::shouldRegisterNavigation())->toBeFalse()
         ->and($table->getHeading())->toBe('Platform packages')
@@ -544,13 +552,14 @@ it('loads the audit page when recent activity items are available', function ():
 
     /** @var Collection<int, array{description: string, event: string, logName: string, loggedAt: string, sortLoggedAt: string}> $activityRecords */
     $activityRecords = (fn (): Collection => $this->activityRecords())->call($page);
+    $activityRecord = $activityRecords->sole();
 
     expect($page->summary['status'])->toBe('available')
         ->and($page->summary['items'][0]['description'])->toBe('Permissions synchronized.')
         ->and($page->summary['items'][0]['logName'])->toBe('access')
         ->and($activityRecords)->toHaveCount(1)
-        ->and($activityRecords->first()['event'])->toBe('updated')
-        ->and($activityRecords->first()['logName'])->toBe('access');
+        ->and($activityRecord['event'])->toBe('updated')
+        ->and($activityRecord['logName'])->toBe('access');
 });
 
 it('normalizes diagnostics check records for the doctor checks table', function (): void {
@@ -582,12 +591,13 @@ it('normalizes diagnostics check records for the doctor checks table', function 
 
     /** @var Collection<int, array{key: string, package: string, status: string, message: string, isBlocking: bool}> $checkRecords */
     $checkRecords = (fn (): Collection => $this->checkRecords())->call($page);
+    $checkRecord = $checkRecords->sole();
 
     expect($checkRecords)->toHaveCount(1)
-        ->and($checkRecords->first()['key'])->toBe('diagnostics.database')
-        ->and($checkRecords->first()['status'])->toBe('failed')
-        ->and($checkRecords->first()['message'])->toBe('Database connectivity failed.')
-        ->and($checkRecords->first()['isBlocking'])->toBeTrue();
+        ->and($checkRecord['key'])->toBe('diagnostics.database')
+        ->and($checkRecord['status'])->toBe('failed')
+        ->and($checkRecord['message'])->toBe('Database connectivity failed.')
+        ->and($checkRecord['isBlocking'])->toBeTrue();
 });
 
 it('normalizes declared permission rows for the permissions table', function (): void {
@@ -632,12 +642,13 @@ it('normalizes declared permission rows for the permissions table', function ():
     $table = $page->table(Table::make($page));
     /** @var Collection<int, array{name: string, package: string, label: string, synced: bool, roleHints: list<string>, assignedRoles: list<string>, roleHintsLabel: string, assignedRolesLabel: string}> $permissionRecords */
     $permissionRecords = (fn (): Collection => $this->permissionRecords())->call($page);
+    $permissionRecord = $permissionRecords->sole();
 
     expect($table->getHeading())->toBe('Declared permissions')
         ->and(array_keys($table->getColumns()))->toBe(['name', 'package', 'synced', 'roleHintsLabel', 'assignedRolesLabel'])
         ->and($permissionRecords)->toHaveCount(1)
-        ->and($permissionRecords->first()['roleHintsLabel'])->toBe('auditor')
-        ->and($permissionRecords->first()['assignedRolesLabel'])->toBe('super-admin');
+        ->and($permissionRecord['roleHintsLabel'])->toBe('auditor')
+        ->and($permissionRecord['assignedRolesLabel'])->toBe('super-admin');
 });
 
 it('normalizes persisted role rows for access management', function (): void {
@@ -674,11 +685,12 @@ it('normalizes persisted role rows for access management', function (): void {
     $table = $page->table(Table::make($page));
     /** @var Collection<int, array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>, permissionNamesLabel: string}> $roleRecords */
     $roleRecords = (fn (): Collection => $this->roleRecords())->call($page);
+    $roleRecord = $roleRecords->sole();
 
     expect($table->getHeading())->toBe('Persisted roles')
         ->and(array_keys($table->getColumns()))->toBe(['name', 'permissionCount', 'assignmentCount', 'permissionNamesLabel'])
         ->and($roleRecords)->toHaveCount(1)
-        ->and($roleRecords->first()['permissionNamesLabel'])->toBe('ops.audit.view, ops.access.manage');
+        ->and($roleRecord['permissionNamesLabel'])->toBe('ops.audit.view, ops.access.manage');
 });
 
 it('forbids access pages in reduced mode', function (): void {

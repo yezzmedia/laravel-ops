@@ -6,6 +6,8 @@ use Filament\PanelRegistry;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
+use YezzMedia\Foundation\Contracts\RegistersFeatures;
+use YezzMedia\Foundation\Registry\FeatureRegistry;
 use YezzMedia\Foundation\Registry\OpsModuleRegistry;
 use YezzMedia\Foundation\Registry\PackageRegistry;
 use YezzMedia\Foundation\Registry\PermissionRegistry;
@@ -62,6 +64,13 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsAccessBridge::class))->toBeInstanceOf(OpsAccessBridge::class)
         ->and(app(RunSystemDiagnosticsAction::class))->toBeInstanceOf(RunSystemDiagnosticsAction::class)
         ->and(app(OpsNavigationResolver::class))->toBeInstanceOf(OpsNavigationResolver::class)
+        ->and(app(FeatureRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
+            'ops.packages',
+            'ops.features',
+            'ops.diagnostics',
+            'ops.runtime',
+            'ops.audit',
+        ])
         ->and(app(OpsModuleRegistry::class)->forPackage('yezzmedia/laravel-ops'))->toHaveCount(0)
         ->and(app(PermissionRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
             'ops.panel.access',
@@ -117,9 +126,11 @@ it('describes the approved ops package surface', function (): void {
     expect($package)->toBeInstanceOf(PlatformPackage::class)
         ->and($package)->toBeInstanceOf(DefinesPermissions::class)
         ->and($package)->toBeInstanceOf(ProvidesOpsModules::class)
+        ->and($package)->toBeInstanceOf(RegistersFeatures::class)
         ->and($metadata->name)->toBe('yezzmedia/laravel-ops')
         ->and($metadata->vendor)->toBe('yezzmedia')
         ->and($metadata->packageClass)->toBe(OpsPlatformPackage::class)
         ->and($package->permissionDefinitions())->toHaveCount(9)
+        ->and($package->featureDefinitions())->toHaveCount(5)
         ->and($package->opsModuleDefinitions())->toBe([]);
 });
