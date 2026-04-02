@@ -21,7 +21,7 @@ final class OpsDoctorCheckDetailsResolver
      *     summary: array{key: string, package: string, status: string, statusLabel: string, statusTone: string, message: string, isBlocking: bool, blockingLabel: string},
      *     snapshot: array{completedAt: string, accessMode: string, diagnosticsStatus: string, healthInstalled: bool, auditInstalled: bool},
      *     insights: array{missingPermissions: list<array{value: string}>, extraPermissions: list<array{value: string}>, declaredPermissionsCount: int|null, persistedPermissionsCount: int|null, roleName: ?string, exception: ?string, exceptionMessage: ?string},
-     *     rawContextRows: list<array{key: string, value: string}>
+     *     rawContextRows: list<array{key: string, valuePreview: string, valueRaw: string}>
      * }
      */
     public function resolve(string $package, string $check): array
@@ -97,7 +97,7 @@ final class OpsDoctorCheckDetailsResolver
 
     /**
      * @param  array<string, mixed>  $context
-     * @return list<array{key: string, value: string}>
+     * @return list<array{key: string, valuePreview: string, valueRaw: string}>
      */
     private function contextRows(array $context): array
     {
@@ -105,11 +105,47 @@ final class OpsDoctorCheckDetailsResolver
             ->map(
                 fn (mixed $value, string $key): array => [
                     'key' => $key,
-                    'value' => $this->stringValue($value),
+                    'valuePreview' => $this->previewValue($value),
+                    'valueRaw' => $this->stringValue($value),
                 ],
             )
             ->values()
             ->all();
+    }
+
+    private function previewValue(mixed $value): string
+    {
+        if (is_array($value)) {
+            if ($value === []) {
+                return '[]';
+            }
+
+            if ($this->isStringList($value)) {
+                return implode(', ', array_map(static fn (mixed $item): string => (string) $item, $value));
+            }
+
+            return sprintf('Structured value (%d items)', count($value));
+        }
+
+        return $this->stringValue($value);
+    }
+
+    /**
+     * @param  array<mixed>  $value
+     */
+    private function isStringList(array $value): bool
+    {
+        if (! array_is_list($value)) {
+            return false;
+        }
+
+        foreach ($value as $item) {
+            if (! is_scalar($item) && $item !== null) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function stringValue(mixed $value): string
