@@ -21,6 +21,7 @@ use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\OpsDashboard;
+use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
@@ -46,6 +47,7 @@ class OpsPanelProvider extends PanelProvider
             ->pages([
                 OpsDashboard::class,
                 PackagesPage::class,
+                PackageDetailsPage::class,
                 FeaturesPage::class,
                 SystemHealthPage::class,
                 PermissionsPage::class,

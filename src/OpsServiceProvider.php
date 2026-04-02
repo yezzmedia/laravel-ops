@@ -26,6 +26,7 @@ use YezzMedia\Ops\Support\OpsFeatureOverviewResolver;
 use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Support\OpsIntegrationResolver;
 use YezzMedia\Ops\Support\OpsNavigationResolver;
+use YezzMedia\Ops\Support\OpsPackageDetailsResolver;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
 use YezzMedia\Ops\Support\OpsPackageSummaryCacheManager;
 use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
@@ -89,6 +90,7 @@ class OpsServiceProvider extends PackageServiceProvider
             return new OpsPackageSummaryResolver(
                 packages: $this->app->make(PackageRegistry::class),
                 features: $this->app->make(FeatureRegistry::class),
+                navigation: $this->app->make(OpsNavigationResolver::class),
                 cache: $this->app->make(OpsPackageSummaryCacheManager::class),
             );
         });
@@ -109,7 +111,19 @@ class OpsServiceProvider extends PackageServiceProvider
             return new OpsPackageOverviewResolver(
                 packages: $this->app->make(PackageRegistry::class),
                 features: $this->app->make(FeatureRegistry::class),
+                permissions: $this->app->make(PermissionRegistry::class),
+                opsModules: $this->app->make(OpsModuleRegistry::class),
                 navigation: $this->app->make(OpsNavigationResolver::class),
+            );
+        });
+        $this->app->singleton(OpsPackageDetailsResolver::class, function (): OpsPackageDetailsResolver {
+            return new OpsPackageDetailsResolver(
+                packages: $this->app->make(PackageRegistry::class),
+                features: $this->app->make(FeatureRegistry::class),
+                permissions: $this->app->make(PermissionRegistry::class),
+                opsModules: $this->app->make(OpsModuleRegistry::class),
+                navigation: $this->app->make(OpsNavigationResolver::class),
+                overview: $this->app->make(OpsPackageOverviewResolver::class),
             );
         });
         $this->app->singleton(OpsFeatureOverviewResolver::class, function (): OpsFeatureOverviewResolver {

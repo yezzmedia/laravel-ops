@@ -5,15 +5,20 @@ declare(strict_types=1);
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
 use YezzMedia\Access\AccessPlatformPackage;
+use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
+use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
 use YezzMedia\Foundation\Data\FeatureDefinition;
+use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
+use YezzMedia\Foundation\Data\PermissionDefinition;
 use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
 use YezzMedia\Ops\Data\OpsRecentActivityItem;
 use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
+use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
@@ -24,6 +29,7 @@ use YezzMedia\Ops\Widgets\AuditStatusWidget;
 use YezzMedia\Ops\Widgets\DiagnosticsPostureWidget;
 use YezzMedia\Ops\Widgets\DriversRuntimeWidget;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
+use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\IntegrationsRuntimeWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
 
@@ -146,6 +152,239 @@ it('loads registered feature records on the features page', function (): void {
         ->and($page->features[0]['description'])->toBe('Manage editorial pages.')
         ->and($featureRecords->first()['entryPointsLabel'])->toBe('No package pages')
         ->and($featureRecords->first()['packageDescription'])->toBe('Content package.');
+});
+
+it('builds a compact package hero summary for the packages page', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new class implements PlatformPackage, ProvidesOpsModules, RegistersFeatures
+    {
+        public function metadata(): PackageMetadata
+        {
+            return new PackageMetadata(
+                name: 'yezzmedia/laravel-content',
+                vendor: 'yezzmedia',
+                description: 'Content package.',
+                packageClass: self::class,
+            );
+        }
+
+        public function featureDefinitions(): array
+        {
+            return [
+                new FeatureDefinition(
+                    name: 'content.pages',
+                    package: 'yezzmedia/laravel-content',
+                    label: 'Content Pages',
+                    description: 'Manage editorial pages.',
+                ),
+            ];
+        }
+
+        public function opsModuleDefinitions(): array
+        {
+            return [
+                new OpsModuleDefinition('content.pages', 'yezzmedia/laravel-content', 'Content Pages', 'page'),
+            ];
+        }
+    });
+
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PackagesPage::class);
+
+    $table = $page->table(Table::make($page));
+    $headerWidgets = (fn (): array => $this->getHeaderWidgets())->call($page);
+
+    expect($headerWidgets)->toBe([
+        InstalledPackagesWidget::class,
+    ])
+        ->and($table->getHeading())->toBe('Platform packages')
+        ->and($table->getDescription())->toBe('Curated package readiness, ownership, and operator-facing entry points.');
+});
+
+it('builds package posture and contribution counts for the packages page', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new class implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
+    {
+        public function metadata(): PackageMetadata
+        {
+            return new PackageMetadata(
+                name: 'yezzmedia/laravel-content',
+                vendor: 'yezzmedia',
+                description: 'Content package.',
+                packageClass: self::class,
+            );
+        }
+
+        public function featureDefinitions(): array
+        {
+            return [
+                new FeatureDefinition('content.pages', 'yezzmedia/laravel-content', 'Content Pages'),
+            ];
+        }
+
+        public function permissionDefinitions(): array
+        {
+            return [
+                new PermissionDefinition('content.pages.view', 'yezzmedia/laravel-content', 'View content pages'),
+            ];
+        }
+
+        public function opsModuleDefinitions(): array
+        {
+            return [
+                new OpsModuleDefinition('content.settings', 'yezzmedia/laravel-content', 'Content settings', 'page', 'content.pages.view'),
+            ];
+        }
+    });
+
+    app(PlatformPackageRegistrar::class)->register(new class implements PlatformPackage
+    {
+        public function metadata(): PackageMetadata
+        {
+            return new PackageMetadata(
+                name: 'yezzmedia/laravel-catalog',
+                vendor: 'yezzmedia',
+                description: 'Catalog package.',
+                packageClass: self::class,
+                enabled: false,
+            );
+        }
+    });
+
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PackagesPage::class);
+
+    $table = $page->table(Table::make($page));
+    /** @var Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}> $packageRecords */
+    $packageRecords = (fn (): Collection => $this->packageRecords())->call($page);
+
+    $contentRecord = $packageRecords->firstWhere('name', 'yezzmedia/laravel-content');
+    $catalogRecord = $packageRecords->firstWhere('name', 'yezzmedia/laravel-catalog');
+
+    expect(PackageDetailsPage::shouldRegisterNavigation())->toBeFalse()
+        ->and($table->getHeading())->toBe('Platform packages')
+        ->and(array_keys($table->getColumns()))->toBe([
+            'name',
+            'vendor',
+            'postureSort',
+            'enabled',
+            'featureCount',
+            'permissionCount',
+            'opsModuleCount',
+            'priority',
+            'entryPointsLabel',
+        ])
+        ->and($contentRecord)->toMatchArray([
+            'posture' => 'healthy',
+            'postureLabel' => 'Healthy',
+            'featureCount' => 1,
+            'permissionCount' => 1,
+            'opsModuleCount' => 1,
+            'entryPointsLabel' => 'Content settings',
+        ])
+        ->and($catalogRecord)->toMatchArray([
+            'posture' => 'disabled',
+            'postureLabel' => 'Disabled',
+            'featureCount' => 0,
+            'permissionCount' => 0,
+            'opsModuleCount' => 0,
+            'entryPointsLabel' => 'No package pages',
+        ]);
+});
+
+it('loads package details for one registered package', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new class implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
+    {
+        public function metadata(): PackageMetadata
+        {
+            return new PackageMetadata(
+                name: 'yezzmedia/laravel-content',
+                vendor: 'yezzmedia',
+                description: 'Content package.',
+                packageClass: self::class,
+            );
+        }
+
+        public function featureDefinitions(): array
+        {
+            return [
+                new FeatureDefinition(
+                    name: 'content.pages',
+                    package: 'yezzmedia/laravel-content',
+                    label: 'Content Pages',
+                    description: 'Manage editorial pages.',
+                ),
+            ];
+        }
+
+        public function permissionDefinitions(): array
+        {
+            return [
+                new PermissionDefinition(
+                    name: 'content.pages.view',
+                    package: 'yezzmedia/laravel-content',
+                    label: 'View content pages',
+                    description: 'Inspect editorial pages.',
+                ),
+            ];
+        }
+
+        public function opsModuleDefinitions(): array
+        {
+            return [
+                new OpsModuleDefinition('content.settings', 'yezzmedia/laravel-content', 'Content settings', 'page', 'content.pages.view'),
+            ];
+        }
+    });
+
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PackageDetailsPage::class);
+    $page->package = 'yezzmedia/laravel-content';
+    $page->mount();
+
+    expect($page->getTitle())->toBe('yezzmedia/laravel-content')
+        ->and($page->getHeading())->toBe('Package details')
+        ->and($page->getSubheading())->toBe('Content package.')
+        ->and($page->details['posture'])->toMatchArray([
+            'state' => 'healthy',
+            'label' => 'Healthy',
+            'tone' => 'success',
+        ])
+        ->and($page->details['counts'])->toBe([
+            'features' => 1,
+            'permissions' => 1,
+            'opsModules' => 1,
+            'entryPoints' => 1,
+        ])
+        ->and($page->details['metadata']['packageClass'])->not->toBe('')
+        ->and($page->details['features'][0])->toMatchArray([
+            'name' => 'content.pages',
+            'label' => 'Content Pages',
+            'description' => 'Manage editorial pages.',
+        ])
+        ->and($page->details['permissions'][0])->toMatchArray([
+            'name' => 'content.pages.view',
+            'label' => 'View content pages',
+            'description' => 'Inspect editorial pages.',
+        ])
+        ->and($page->details['opsModules'][0])->toMatchArray([
+            'key' => 'content.settings',
+            'label' => 'Content settings',
+            'type' => 'page',
+            'permissionHint' => 'content.pages.view',
+        ])
+        ->and($page->details['entryPoints'][0])->toMatchArray([
+            'label' => 'Content settings',
+            'permissionHint' => 'content.pages.view',
+            'url' => null,
+        ]);
 });
 
 it('loads the audit page when recent activity items are available', function (): void {

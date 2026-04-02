@@ -68,6 +68,7 @@ final class PackagesPage extends OpsPage implements HasTable
                 );
             })
             ->defaultSort('name')
+            ->recordUrl(fn (array $record): string => PackageDetailsPage::getUrl(['package' => $record['name']]))
             ->searchable()
             ->paginated([10, 25, 50])
             ->columns([
@@ -80,12 +81,27 @@ final class PackagesPage extends OpsPage implements HasTable
                     ->badge()
                     ->color('gray')
                     ->sortable(),
+                TextColumn::make('postureSort')
+                    ->label('Posture')
+                    ->state(fn (array $record): string => $record['postureLabel'])
+                    ->badge()
+                    ->color(fn (array $record): string => $record['postureTone'])
+                    ->sortable(),
                 IconColumn::make('enabled')
                     ->label('Enabled')
                     ->boolean()
+                    ->tooltip(fn (bool $state): string => $state ? 'Participates in capability aggregation.' : 'Visible in inventory but excluded from capability aggregation.')
                     ->sortable(),
                 TextColumn::make('featureCount')
                     ->label('Features')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('permissionCount')
+                    ->label('Permissions')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('opsModuleCount')
+                    ->label('Ops modules')
                     ->badge()
                     ->sortable(),
                 TextColumn::make('priority')
@@ -106,7 +122,7 @@ final class PackagesPage extends OpsPage implements HasTable
     }
 
     /**
-     * @return Collection<int, array{name: string, vendor: string, description: string, enabled: bool, priority: ?int, featureCount: int, entryPoints: list<string>, entryPointsLabel: string}>
+     * @return Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}>
      */
     private function packageRecords(): Collection
     {
@@ -120,6 +136,11 @@ final class PackagesPage extends OpsPage implements HasTable
                         ? 'No package pages'
                         : implode(', ', $entryPoints),
                 ];
-            });
+            })
+            ->sortBy([
+                ['postureSort', 'desc'],
+                ['name', 'asc'],
+            ])
+            ->values();
     }
 }

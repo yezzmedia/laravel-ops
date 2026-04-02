@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use YezzMedia\Foundation\Contracts\PlatformPackage;
+use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
 use YezzMedia\Foundation\Data\FeatureDefinition;
+use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
 use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
 use YezzMedia\Ops\Data\OpsPackageSummary;
@@ -12,7 +14,7 @@ use YezzMedia\Ops\Support\OpsPackageSummaryCacheManager;
 use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
 
 it('builds and caches a curated package summary from foundation registries', function (): void {
-    app(PlatformPackageRegistrar::class)->register(new class implements PlatformPackage, RegistersFeatures
+    app(PlatformPackageRegistrar::class)->register(new class implements PlatformPackage, ProvidesOpsModules, RegistersFeatures
     {
         public function metadata(): PackageMetadata
         {
@@ -28,6 +30,13 @@ it('builds and caches a curated package summary from foundation registries', fun
         {
             return [
                 new FeatureDefinition('content.pages', 'yezzmedia/laravel-content', 'Content Pages'),
+            ];
+        }
+
+        public function opsModuleDefinitions(): array
+        {
+            return [
+                new OpsModuleDefinition('content.pages', 'yezzmedia/laravel-content', 'Content Pages', 'page'),
             ];
         }
     });
@@ -54,6 +63,7 @@ it('builds and caches a curated package summary from foundation registries', fun
         ->and($summary->enabledCount)->toBe(3)
         ->and($summary->disabledCount)->toBe(1)
         ->and($summary->featurePackageCount)->toBe(1)
+        ->and($summary->entryPointPackageCount)->toBe(1)
         ->and($summary->status)->toBe('warnings')
         ->and(app(OpsPackageSummaryCacheManager::class)->summary())->toBeInstanceOf(OpsPackageSummary::class);
 });

@@ -15,6 +15,7 @@ use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\OpsDashboard;
+use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
@@ -27,6 +28,7 @@ use YezzMedia\Ops\Support\OpsFeatureOverviewResolver;
 use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Support\OpsIntegrationResolver;
 use YezzMedia\Ops\Support\OpsNavigationResolver;
+use YezzMedia\Ops\Support\OpsPackageDetailsResolver;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
 use YezzMedia\Ops\Support\OpsPackageSummaryCacheManager;
 use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
@@ -53,6 +55,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsPackageSummaryCacheManager::class))->toBeInstanceOf(OpsPackageSummaryCacheManager::class)
         ->and(app(OpsPackageSummaryResolver::class))->toBeInstanceOf(OpsPackageSummaryResolver::class)
         ->and(app(OpsPackageOverviewResolver::class))->toBeInstanceOf(OpsPackageOverviewResolver::class)
+        ->and(app(OpsPackageDetailsResolver::class))->toBeInstanceOf(OpsPackageDetailsResolver::class)
         ->and(app(OpsFeatureOverviewResolver::class))->toBeInstanceOf(OpsFeatureOverviewResolver::class)
         ->and(app(OpsRecentActivityCacheManager::class))->toBeInstanceOf(OpsRecentActivityCacheManager::class)
         ->and(app(OpsRecentActivityResolver::class))->toBeInstanceOf(OpsRecentActivityResolver::class)
@@ -77,6 +80,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getAuthGuard())->toBe('web')
         ->and($panel?->getPages())->toContain(OpsDashboard::class)
         ->and($panel?->getPages())->toContain(PackagesPage::class)
+        ->and($panel?->getPages())->toContain(PackageDetailsPage::class)
         ->and($panel?->getPages())->toContain(FeaturesPage::class)
         ->and($panel?->getPages())->toContain(SystemHealthPage::class)
         ->and($panel?->getPages())->toContain(PermissionsPage::class)

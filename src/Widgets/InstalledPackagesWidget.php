@@ -22,6 +22,11 @@ class InstalledPackagesWidget extends StatsOverviewWidget
     protected ?string $pollingInterval = null;
 
     /**
+     * @var int|string|array<string, int|null>
+     */
+    protected int|string|array $columnSpan = 'full';
+
+    /**
      * @return array<Stat>
      */
     protected function getStats(): array
@@ -29,7 +34,7 @@ class InstalledPackagesWidget extends StatsOverviewWidget
         $summary = app(OpsPackageSummaryResolver::class)->resolve();
 
         return [
-            Stat::make('Installed packages', $summary->installedCount)
+            Stat::make('Registered packages', $summary->installedCount)
                 ->description('Platform-visible packages registered through foundation.')
                 ->descriptionIcon(Heroicon::OutlinedCheckCircle)
                 ->color($summary->installedCount > 0 ? 'success' : 'gray'),
@@ -37,6 +42,14 @@ class InstalledPackagesWidget extends StatsOverviewWidget
                 ->description($summary->disabledCount > 0 ? 'Some registered packages are disabled.' : 'All registered packages are enabled.')
                 ->descriptionIcon($summary->disabledCount > 0 ? Heroicon::OutlinedExclamationCircle : Heroicon::OutlinedCheckCircle)
                 ->color($summary->disabledCount > 0 ? 'warning' : 'success'),
+            Stat::make('With features', $summary->featurePackageCount)
+                ->description('Enabled packages exposing registered platform features.')
+                ->descriptionIcon($summary->featurePackageCount > 0 ? Heroicon::OutlinedCheckCircle : Heroicon::OutlinedClock)
+                ->color($summary->featurePackageCount > 0 ? 'success' : 'gray'),
+            Stat::make('With entry points', $summary->entryPointPackageCount)
+                ->description('Packages with visible ops entry points in controlled navigation.')
+                ->descriptionIcon($summary->entryPointPackageCount > 0 ? Heroicon::OutlinedCheckCircle : Heroicon::OutlinedClock)
+                ->color($summary->entryPointPackageCount > 0 ? 'success' : 'gray'),
             Stat::make('Status', $this->statusLabel($summary))
                 ->description($this->statusDescription($summary))
                 ->descriptionIcon($this->statusIcon($summary))
@@ -58,7 +71,7 @@ class InstalledPackagesWidget extends StatsOverviewWidget
         return match ($summary->status) {
             'empty' => 'No platform packages are currently registered.',
             'warnings' => sprintf('%d package(s) expose features and %d package(s) are disabled.', $summary->featurePackageCount, $summary->disabledCount),
-            default => sprintf('%d package(s) expose registered platform features.', $summary->featurePackageCount),
+            default => sprintf('%d package(s) expose registered features and %d package(s) expose visible entry points.', $summary->featurePackageCount, $summary->entryPointPackageCount),
         };
     }
 
