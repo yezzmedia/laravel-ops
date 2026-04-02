@@ -19,6 +19,7 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 use YezzMedia\Ops\Http\Middleware\AuthorizeOpsPanelAccess;
 use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
+use YezzMedia\Ops\Pages\DoctorCheckDetailsPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\OpsDashboard;
 use YezzMedia\Ops\Pages\PackageDetailsPage;
@@ -50,6 +51,7 @@ class OpsPanelProvider extends PanelProvider
                 PackageDetailsPage::class,
                 FeaturesPage::class,
                 SystemHealthPage::class,
+                DoctorCheckDetailsPage::class,
                 PermissionsPage::class,
                 AccessManagementPage::class,
                 AuditTrailPage::class,

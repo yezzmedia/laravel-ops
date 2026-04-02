@@ -50,7 +50,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
     protected string $view = 'ops::pages.system-health-page';
 
     /**
-     * @var array{status: string, failingCount: int, warningCount: int, passedCount: int, skippedCount: int, completedAt: string, accessMode: string, healthInstalled: bool, auditInstalled: bool, checks: list<array{key: string, package: string, status: string, message: string, isBlocking: bool}>}
+     * @var array{status: string, failingCount: int, warningCount: int, passedCount: int, skippedCount: int, completedAt: string, accessMode: string, healthInstalled: bool, auditInstalled: bool, checks: list<array{key: string, package: string, status: string, message: string, isBlocking: bool, context: array<string, mixed>|null}>}
      */
     public array $summary = [
         'status' => 'idle',
@@ -124,6 +124,10 @@ final class SystemHealthPage extends OpsPage implements HasTable
                 );
             })
             ->defaultSort('key')
+            ->recordUrl(fn (array $record): string => DoctorCheckDetailsPage::getUrl([
+                'package' => $record['package'],
+                'check' => $record['key'],
+            ]))
             ->searchable()
             ->paginated([10, 25, 50])
             ->columns([
@@ -342,7 +346,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
     }
 
     /**
-     * @return Collection<int, array{key: string, package: string, status: string, message: string, isBlocking: bool}>
+     * @return Collection<int, array{key: string, package: string, status: string, message: string, isBlocking: bool, context: array<string, mixed>|null}>
      */
     private function checkRecords(): Collection
     {

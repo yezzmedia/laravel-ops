@@ -10,7 +10,7 @@ namespace YezzMedia\Ops\Data;
 final readonly class OpsDiagnosticsSummary
 {
     /**
-     * @param  array<int, array{key: string, package: string, status: string, message: string, isBlocking: bool}>  $checks
+     * @param  array<int, array{key: string, package: string, status: string, message: string, isBlocking: bool, context: array<string, mixed>|null}>  $checks
      */
     public function __construct(
         public string $status,

@@ -9,14 +9,17 @@ use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
+use YezzMedia\Foundation\Data\DoctorResult;
 use YezzMedia\Foundation\Data\FeatureDefinition;
 use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
 use YezzMedia\Foundation\Data\PermissionDefinition;
+use YezzMedia\Foundation\Doctor\DoctorManager;
 use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
 use YezzMedia\Ops\Data\OpsRecentActivityItem;
 use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
+use YezzMedia\Ops\Pages\DoctorCheckDetailsPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
@@ -620,11 +623,15 @@ it('normalizes diagnostics check records for the doctor checks table', function 
                 'status' => 'failed',
                 'message' => 'Database connectivity failed.',
                 'isBlocking' => true,
+                'context' => [
+                    'exception' => RuntimeException::class,
+                    'message' => 'Could not connect to the primary database host.',
+                ],
             ],
         ],
     ];
 
-    /** @var Collection<int, array{key: string, package: string, status: string, message: string, isBlocking: bool}> $checkRecords */
+    /** @var Collection<int, array{key: string, package: string, status: string, message: string, isBlocking: bool, context: array<string, mixed>|null}> $checkRecords */
     $checkRecords = (fn (): Collection => $this->checkRecords())->call($page);
     $checkRecord = $checkRecords->sole();
 
@@ -632,7 +639,66 @@ it('normalizes diagnostics check records for the doctor checks table', function 
         ->and($checkRecord['key'])->toBe('diagnostics.database')
         ->and($checkRecord['status'])->toBe('failed')
         ->and($checkRecord['message'])->toBe('Database connectivity failed.')
-        ->and($checkRecord['isBlocking'])->toBeTrue();
+        ->and($checkRecord['isBlocking'])->toBeTrue()
+        ->and($checkRecord['context'])->toBe([
+            'exception' => RuntimeException::class,
+            'message' => 'Could not connect to the primary database host.',
+        ]);
+});
+
+it('loads doctor check details for one diagnostics record', function (): void {
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    $manager = new class(collect([new DoctorResult('permissions_synchronized', 'yezzmedia/laravel-access', 'failed', 'Declared permissions are missing from the persistent permission store.', true, ['missing_permissions' => ['ops.audit.view'], 'extra_permissions' => ['legacy.permission'], 'declared_permissions' => ['ops.audit.view', 'ops.access.manage'], 'persisted_permissions' => ['ops.access.manage', 'legacy.permission']])])) extends DoctorManager
+    {
+        /**
+         * @param  Collection<int, DoctorResult>  $results
+         */
+        public function __construct(private readonly Collection $results) {}
+
+        public function run(): Collection
+        {
+            return $this->results;
+        }
+    };
+
+    app()->instance(DoctorManager::class, $manager);
+
+    $page = app(DoctorCheckDetailsPage::class);
+    $page->package = 'yezzmedia/laravel-access';
+    $page->check = 'permissions_synchronized';
+    $page->mount();
+
+    expect($page->getTitle())->toBe('permissions_synchronized')
+        ->and($page->getHeading())->toBe('Doctor check details')
+        ->and($page->details['summary'])->toMatchArray([
+            'key' => 'permissions_synchronized',
+            'package' => 'yezzmedia/laravel-access',
+            'status' => 'failed',
+            'statusLabel' => 'Failed',
+            'statusTone' => 'danger',
+            'blockingLabel' => 'Blocking',
+        ])
+        ->and($page->details['snapshot']['completedAt'])->not->toBe('')
+        ->and($page->details['snapshot'])->toMatchArray([
+            'accessMode' => 'Reduced',
+            'diagnosticsStatus' => 'Completed',
+            'healthInstalled' => false,
+            'auditInstalled' => true,
+        ])
+        ->and($page->details['insights'])->toMatchArray([
+            'missingPermissions' => [['value' => 'ops.audit.view']],
+            'extraPermissions' => [['value' => 'legacy.permission']],
+            'declaredPermissionsCount' => 2,
+            'persistedPermissionsCount' => 2,
+            'roleName' => null,
+        ])
+        ->and($page->details['rawContextRows'])->toContain([
+            'key' => 'missing_permissions',
+            'value' => '["ops.audit.view"]',
+        ]);
 });
 
 it('normalizes declared permission rows for the permissions table', function (): void {
