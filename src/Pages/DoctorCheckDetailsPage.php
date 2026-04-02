@@ -41,7 +41,7 @@ final class DoctorCheckDetailsPage extends OpsPage
      *     summary: array{key: string, package: string, status: string, statusLabel: string, statusTone: string, message: string, isBlocking: bool, blockingLabel: string},
      *     snapshot: array{completedAt: string, accessMode: string, diagnosticsStatus: string, healthInstalled: bool, auditInstalled: bool},
      *     insights: array{missingPermissions: list<array{value: string}>, extraPermissions: list<array{value: string}>, declaredPermissionsCount: int|null, persistedPermissionsCount: int|null, roleName: ?string, exception: ?string, exceptionMessage: ?string},
-     *     rawContextRows: list<array{key: string, value: string}>
+     *     rawContextRows: list<array{key: string, valuePreview: string, valueRaw: string}>
      * }
      */
     public array $details = [
@@ -211,7 +211,8 @@ final class DoctorCheckDetailsPage extends OpsPage
                             ])
                             ->schema([
                                 TextEntry::make('key'),
-                                TextEntry::make('value')
+                                TextEntry::make('valuePreview')
+                                    ->tooltip(fn (TextEntry $component): ?string => data_get($component->getContainer()->getState(), 'valueRaw'))
                                     ->copyable(),
                             ])
                             ->placeholder('This doctor check did not expose additional raw context.'),

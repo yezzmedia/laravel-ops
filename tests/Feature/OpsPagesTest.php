@@ -697,7 +697,8 @@ it('loads doctor check details for one diagnostics record', function (): void {
         ])
         ->and($page->details['rawContextRows'])->toContain([
             'key' => 'missing_permissions',
-            'value' => '["ops.audit.view"]',
+            'valuePreview' => 'ops.audit.view',
+            'valueRaw' => '["ops.audit.view"]',
         ]);
 });
 
