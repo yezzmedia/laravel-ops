@@ -22,6 +22,7 @@ abstract class OpsPage extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return app(OpsSurfaceVisibilityResolver::class)->visible(static::$opsSurface);
+        return parent::shouldRegisterNavigation()
+            && app(OpsSurfaceVisibilityResolver::class)->visible(static::$opsSurface);
     }
 }

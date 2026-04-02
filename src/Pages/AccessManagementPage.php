@@ -10,18 +10,28 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Concerns\InteractsWithTable;
+use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Table;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
 use UnitEnum;
 use YezzMedia\Ops\Support\OpsAccessBridge;
 use YezzMedia\Ops\Support\OpsGuardResolver;
+use YezzMedia\Ops\Widgets\AccessManagementOverviewWidget;
+use YezzMedia\Ops\Widgets\AccessManagementStatusWidget;
 
 /**
  * Provides write-capable access management entry points backed by access-owned services.
  */
-final class AccessManagementPage extends OpsPage
+final class AccessManagementPage extends OpsPage implements HasTable
 {
+    use InteractsWithTable;
+
     protected static string $opsSurface = 'access_management';
 
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-users';
@@ -186,6 +196,85 @@ final class AccessManagementPage extends OpsPage
         }
     }
 
+    public function table(Table $table): Table
+    {
+        return $table
+            ->heading('Persisted roles')
+            ->description('Role composition, permission breadth, and current assignment counts.')
+            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+                $records = $this->roleRecords();
+
+                if (filled($search)) {
+                    $needle = mb_strtolower(trim((string) $search));
+
+                    $records = $records->filter(static function (array $record) use ($needle): bool {
+                        return str_contains(mb_strtolower($record['name']), $needle)
+                            || str_contains(mb_strtolower($record['permissionNamesLabel']), $needle);
+                    })->values();
+                }
+
+                $sortColumn ??= 'name';
+                $sortDirection ??= 'asc';
+
+                $records = $records
+                    ->sortBy($sortColumn, SORT_NATURAL, $sortDirection === 'desc')
+                    ->values();
+
+                return new LengthAwarePaginator(
+                    items: $records->forPage($page, $recordsPerPage)->values(),
+                    total: $records->count(),
+                    perPage: $recordsPerPage,
+                    currentPage: $page,
+                );
+            })
+            ->defaultSort('name')
+            ->searchable()
+            ->paginated([10, 25, 50])
+            ->columns([
+                TextColumn::make('name')
+                    ->label('Role')
+                    ->badge()
+                    ->color('gray')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('permissionCount')
+                    ->label('Permissions')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('assignmentCount')
+                    ->label('Assignments')
+                    ->badge()
+                    ->sortable(),
+                TextColumn::make('permissionNamesLabel')
+                    ->label('Permission names')
+                    ->wrap(),
+            ])
+            ->emptyStateHeading('No persisted roles are currently available for access management.');
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
+            AccessManagementOverviewWidget::class,
+            AccessManagementStatusWidget::class,
+        ];
+    }
+
+    public function getHeaderWidgetsColumns(): array
+    {
+        return [
+            'md' => 1,
+            'xl' => 2,
+        ];
+    }
+
+    public function getWidgetData(): array
+    {
+        return [
+            'overview' => $this->overview,
+        ];
+    }
+
     private function refreshOverview(): void
     {
         $this->overview = app(OpsAccessBridge::class)->managementOverview();
@@ -197,5 +286,21 @@ final class AccessManagementPage extends OpsPage
         $user = Auth::guard($guard)->user();
 
         return $user instanceof Authenticatable ? $user : null;
+    }
+
+    /**
+     * @return Collection<int, array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>, permissionNamesLabel: string}>
+     */
+    private function roleRecords(): Collection
+    {
+        return collect($this->overview['roles'])
+            ->map(static function (array $role): array {
+                return [
+                    ...$role,
+                    'permissionNamesLabel' => $role['permissionNames'] === []
+                        ? 'n/a'
+                        : implode(', ', $role['permissionNames']),
+                ];
+            });
     }
 }

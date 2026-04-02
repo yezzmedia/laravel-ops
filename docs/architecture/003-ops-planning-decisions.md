@@ -1,10 +1,21 @@
 # 003 Ops Planning Decisions
 
+## Fold-Back Status
+
+These planning decisions have been carried back into the primary `003-ops` architecture documents.
+
+The canonical wording now lives in:
+
+- `/home/yezz/Developement/plan/website/packages/yezzmedia/foundation/docs/architecture/003-ops-laravel.md`
+- `/home/yezz/Developement/plan/website/packages/yezzmedia/foundation/docs/architecture/003-ops-reference.md`
+
+This file remains as package-local historical context for how those decisions were prepared before the primary architecture source was updated.
+
 ## Purpose
 
-This document records planning decisions that must be treated as part of the current `003-ops` architecture direction for `yezzmedia/laravel-ops`.
+This document recorded planning decisions for the current `003-ops` architecture direction before they were carried back into the primary architecture source.
 
-It exists because the approved architecture source under `/plan/...` is read-only from the package workspace. The decisions here are intended to be carried back into `003-ops-laravel.md` and `003-ops-reference.md` so implementation work has one explicit package-owned planning baseline.
+It is now retained as package-local historical planning context rather than the canonical source of truth.
 
 ## Decision 1: Filament Panel Access Must Use `FilamentUser`
 
@@ -144,4 +155,6 @@ Before implementation starts, the package plan should assume the following:
 
 ## Status
 
-These decisions are intended to be treated as adopted planning for the current `003-ops` phase until the read-only architecture source is updated with matching wording.
+These decisions have been carried back into the primary `003-*` documents.
+
+This file should now be treated as archival planning history rather than the current canonical architecture source.

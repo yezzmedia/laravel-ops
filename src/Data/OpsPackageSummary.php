@@ -14,6 +14,7 @@ final readonly class OpsPackageSummary
         public int $enabledCount,
         public int $disabledCount,
         public int $featurePackageCount,
+        public int $entryPointPackageCount,
         public string $status,
     ) {}
 }

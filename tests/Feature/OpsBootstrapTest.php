@@ -6,6 +6,8 @@ use Filament\PanelRegistry;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
+use YezzMedia\Foundation\Contracts\RegistersFeatures;
+use YezzMedia\Foundation\Registry\FeatureRegistry;
 use YezzMedia\Foundation\Registry\OpsModuleRegistry;
 use YezzMedia\Foundation\Registry\PackageRegistry;
 use YezzMedia\Foundation\Registry\PermissionRegistry;
@@ -15,6 +17,7 @@ use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\OpsDashboard;
+use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
@@ -27,6 +30,7 @@ use YezzMedia\Ops\Support\OpsFeatureOverviewResolver;
 use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Support\OpsIntegrationResolver;
 use YezzMedia\Ops\Support\OpsNavigationResolver;
+use YezzMedia\Ops\Support\OpsPackageDetailsResolver;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
 use YezzMedia\Ops\Support\OpsPackageSummaryCacheManager;
 use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
@@ -53,12 +57,20 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsPackageSummaryCacheManager::class))->toBeInstanceOf(OpsPackageSummaryCacheManager::class)
         ->and(app(OpsPackageSummaryResolver::class))->toBeInstanceOf(OpsPackageSummaryResolver::class)
         ->and(app(OpsPackageOverviewResolver::class))->toBeInstanceOf(OpsPackageOverviewResolver::class)
+        ->and(app(OpsPackageDetailsResolver::class))->toBeInstanceOf(OpsPackageDetailsResolver::class)
         ->and(app(OpsFeatureOverviewResolver::class))->toBeInstanceOf(OpsFeatureOverviewResolver::class)
         ->and(app(OpsRecentActivityCacheManager::class))->toBeInstanceOf(OpsRecentActivityCacheManager::class)
         ->and(app(OpsRecentActivityResolver::class))->toBeInstanceOf(OpsRecentActivityResolver::class)
         ->and(app(OpsAccessBridge::class))->toBeInstanceOf(OpsAccessBridge::class)
         ->and(app(RunSystemDiagnosticsAction::class))->toBeInstanceOf(RunSystemDiagnosticsAction::class)
         ->and(app(OpsNavigationResolver::class))->toBeInstanceOf(OpsNavigationResolver::class)
+        ->and(app(FeatureRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
+            'ops.packages',
+            'ops.features',
+            'ops.diagnostics',
+            'ops.runtime',
+            'ops.audit',
+        ])
         ->and(app(OpsModuleRegistry::class)->forPackage('yezzmedia/laravel-ops'))->toHaveCount(0)
         ->and(app(PermissionRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
             'ops.panel.access',
@@ -77,6 +89,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getAuthGuard())->toBe('web')
         ->and($panel?->getPages())->toContain(OpsDashboard::class)
         ->and($panel?->getPages())->toContain(PackagesPage::class)
+        ->and($panel?->getPages())->toContain(PackageDetailsPage::class)
         ->and($panel?->getPages())->toContain(FeaturesPage::class)
         ->and($panel?->getPages())->toContain(SystemHealthPage::class)
         ->and($panel?->getPages())->toContain(PermissionsPage::class)
@@ -113,9 +126,11 @@ it('describes the approved ops package surface', function (): void {
     expect($package)->toBeInstanceOf(PlatformPackage::class)
         ->and($package)->toBeInstanceOf(DefinesPermissions::class)
         ->and($package)->toBeInstanceOf(ProvidesOpsModules::class)
+        ->and($package)->toBeInstanceOf(RegistersFeatures::class)
         ->and($metadata->name)->toBe('yezzmedia/laravel-ops')
         ->and($metadata->vendor)->toBe('yezzmedia')
         ->and($metadata->packageClass)->toBe(OpsPlatformPackage::class)
         ->and($package->permissionDefinitions())->toHaveCount(9)
+        ->and($package->featureDefinitions())->toHaveCount(5)
         ->and($package->opsModuleDefinitions())->toBe([]);
 });

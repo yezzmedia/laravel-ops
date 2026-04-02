@@ -7,6 +7,8 @@ namespace YezzMedia\Ops;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
+use YezzMedia\Foundation\Contracts\RegistersFeatures;
+use YezzMedia\Foundation\Data\FeatureDefinition;
 use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
 use YezzMedia\Foundation\Data\PermissionDefinition;
@@ -14,7 +16,7 @@ use YezzMedia\Foundation\Data\PermissionDefinition;
 /**
  * Describes the stable ops-owned package surface for foundation registration.
  */
-final class OpsPlatformPackage implements DefinesPermissions, PlatformPackage, ProvidesOpsModules
+final class OpsPlatformPackage implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
 {
     public function metadata(): PackageMetadata
     {
@@ -41,6 +43,45 @@ final class OpsPlatformPackage implements DefinesPermissions, PlatformPackage, P
             new PermissionDefinition('ops.audit.view', 'yezzmedia/laravel-ops', 'View audit surfaces', 'View audit-facing operational visibility surfaces.'),
             new PermissionDefinition('ops.access.view', 'yezzmedia/laravel-ops', 'View access operations', 'View access-related operational visibility surfaces.'),
             new PermissionDefinition('ops.access.manage', 'yezzmedia/laravel-ops', 'Manage access operations', 'Perform access-management mutations through ops workflows.'),
+        ];
+    }
+
+    /**
+     * @return array<int, FeatureDefinition>
+     */
+    public function featureDefinitions(): array
+    {
+        return [
+            new FeatureDefinition(
+                'ops.packages',
+                'yezzmedia/laravel-ops',
+                'Package visibility',
+                'Curated visibility into installed platform packages, their posture, contributions, and operator entry points.',
+            ),
+            new FeatureDefinition(
+                'ops.features',
+                'yezzmedia/laravel-ops',
+                'Feature visibility',
+                'Curated visibility into registered platform features, their ownership, and related operator entry points.',
+            ),
+            new FeatureDefinition(
+                'ops.diagnostics',
+                'yezzmedia/laravel-ops',
+                'Diagnostics',
+                'Operator-facing diagnostics, doctor results, and readiness visibility for the platform.',
+            ),
+            new FeatureDefinition(
+                'ops.runtime',
+                'yezzmedia/laravel-ops',
+                'Runtime posture',
+                'Curated runtime and infrastructure posture visibility within ops diagnostics surfaces.',
+            ),
+            new FeatureDefinition(
+                'ops.audit',
+                'yezzmedia/laravel-ops',
+                'Audit visibility',
+                'Operator-facing audit visibility and recent operational activity when a supported audit backend is available.',
+            ),
         ];
     }
 
