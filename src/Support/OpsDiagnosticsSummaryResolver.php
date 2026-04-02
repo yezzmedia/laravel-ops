@@ -40,6 +40,7 @@ final class OpsDiagnosticsSummaryResolver
                     'status' => $result->status,
                     'message' => $result->message,
                     'isBlocking' => $result->isBlocking,
+                    'context' => $result->context,
                 ])
                 ->all(),
         );
