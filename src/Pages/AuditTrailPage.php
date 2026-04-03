@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -19,6 +21,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use YezzMedia\Ops\Actions\RefreshAuditSnapshotAction;
 use YezzMedia\Ops\Data\OpsRecentActivityItem;
 use YezzMedia\Ops\Support\OpsRecentActivityResolver;
 
@@ -44,7 +47,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
     protected string $view = 'ops::pages.audit-trail-page';
 
     /**
-     * @var array{status: string, backend: ?string, activityCount: int, latestDescription: ?string, latestAt: ?string, items: list<array{id: string, description: string, event: ?string, logName: ?string, loggedAt: ?string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>}>}
+     * @var array{status: string, backend: ?string, activityCount: int, latestDescription: ?string, latestAt: ?string, cachedAt: ?string, source: ?string, items: list<array{id: string, description: string, event: ?string, logName: ?string, loggedAt: ?string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>}>}
      */
     public array $summary = [
         'status' => 'unavailable',
@@ -52,6 +55,8 @@ final class AuditTrailPage extends OpsPage implements HasTable
         'activityCount' => 0,
         'latestDescription' => null,
         'latestAt' => null,
+        'cachedAt' => null,
+        'source' => null,
         'items' => [],
     ];
 
@@ -65,6 +70,8 @@ final class AuditTrailPage extends OpsPage implements HasTable
             'activityCount' => $summary->activityCount,
             'latestDescription' => $summary->latestDescription,
             'latestAt' => $summary->latestAt,
+            'cachedAt' => $summary->cachedAt,
+            'source' => $summary->source,
             'items' => array_map(
                 static fn (OpsRecentActivityItem $item): array => [
                     'id' => $item->id ?? sha1(sprintf('%s|%s|%s|%s', $item->description, $item->event ?? '', $item->logName ?? '', $item->loggedAt ?? '')),
@@ -125,6 +132,18 @@ final class AuditTrailPage extends OpsPage implements HasTable
             ->recordUrl(fn (array $record): string => AuditEntryDetailsPage::getUrl(['entry' => $record['id']], panel: (string) config('ops.panel.id', 'ops')))
             ->searchable()
             ->filters([
+                Filter::make('logged_at')
+                    ->label('Period')
+                    ->schema([
+                        DatePicker::make('from')->label('From'),
+                        DatePicker::make('until')->label('Until'),
+                    ]),
+                SelectFilter::make('actorLabel')
+                    ->label('Actor')
+                    ->options(fn (): array => $this->actorFilterOptions()),
+                SelectFilter::make('subjectLabel')
+                    ->label('Subject')
+                    ->options(fn (): array => $this->subjectFilterOptions()),
                 SelectFilter::make('event')
                     ->label('Event')
                     ->options(fn (): array => $this->eventFilterOptions()),
@@ -135,6 +154,18 @@ final class AuditTrailPage extends OpsPage implements HasTable
                     ->label('Has context'),
             ])
             ->paginated([10, 25, 50])
+            ->headerActions([
+                Action::make('refreshSnapshot')
+                    ->label('Refresh snapshot')
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->color('gray')
+                    ->action(fn (): mixed => $this->refreshSnapshot()),
+                Action::make('exportFiltered')
+                    ->label('Export CSV')
+                    ->icon(Heroicon::OutlinedArrowDownTray)
+                    ->color('gray')
+                    ->action(fn () => $this->exportFilteredActivity()),
+            ])
             ->columns([
                 TextColumn::make('description')
                     ->label('Entry')
@@ -202,6 +233,8 @@ final class AuditTrailPage extends OpsPage implements HasTable
             'latestEntryState' => $this->summary['latestDescription'] === null ? 'Unavailable' : 'Available',
             'latestDescription' => $this->summary['latestDescription'] ?? 'No recent audit entry available.',
             'latestAt' => $this->summary['latestAt'] ?? 'n/a',
+            'source' => $this->summary['source'] ?? 'fresh read',
+            'cachedAt' => $this->summary['cachedAt'] ?? 'n/a',
         ];
     }
 
@@ -239,6 +272,14 @@ final class AuditTrailPage extends OpsPage implements HasTable
                             ->badge()
                             ->color(fn (string $state): string => $state === 'Unavailable' ? 'gray' : 'primary')
                             ->helperText('Audit source currently backing the operator-visible activity stream.'),
+                        TextEntry::make('source')
+                            ->label('Snapshot source')
+                            ->badge()
+                            ->color('gray')
+                            ->helperText('Whether the current data was read freshly or from cache.'),
+                        TextEntry::make('cachedAt')
+                            ->label('Snapshot refreshed at')
+                            ->helperText('When the current snapshot was last assembled.'),
                         TextEntry::make('latestEntryState')
                             ->label('Latest entry')
                             ->badge()
@@ -275,6 +316,36 @@ final class AuditTrailPage extends OpsPage implements HasTable
             ]);
     }
 
+    public function refreshSnapshot(): void
+    {
+        $summary = app(RefreshAuditSnapshotAction::class)->run();
+
+        $this->summary = [
+            'status' => $summary->status,
+            'backend' => $summary->backend,
+            'activityCount' => $summary->activityCount,
+            'latestDescription' => $summary->latestDescription,
+            'latestAt' => $summary->latestAt,
+            'cachedAt' => $summary->cachedAt,
+            'source' => $summary->source,
+            'items' => array_map(
+                static fn (OpsRecentActivityItem $item): array => [
+                    'id' => $item->id ?? sha1(sprintf('%s|%s|%s|%s', $item->description, $item->event ?? '', $item->logName ?? '', $item->loggedAt ?? '')),
+                    'description' => $item->description,
+                    'event' => $item->event,
+                    'logName' => $item->logName,
+                    'loggedAt' => $item->loggedAt,
+                    'actorLabel' => $item->actorLabel,
+                    'subjectLabel' => $item->subjectLabel,
+                    'contextPreview' => $item->contextPreview,
+                    'contextRows' => $item->contextRows,
+                    'changesRows' => $item->changesRows,
+                ],
+                array_values($summary->items),
+            ),
+        ];
+    }
+
     /**
      * @return Collection<int, array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>, sortLoggedAt: string}>
      */
@@ -307,8 +378,37 @@ final class AuditTrailPage extends OpsPage implements HasTable
      */
     private function applyFilters(Collection $records, array $filters): Collection
     {
+        $period = $filters['logged_at'] ?? [];
+        $from = filled($period['from'] ?? null) ? (string) $period['from'] : null;
+        $until = filled($period['until'] ?? null) ? (string) $period['until'] : null;
+        $actorLabel = $filters['actorLabel']['value'] ?? null;
+        $subjectLabel = $filters['subjectLabel']['value'] ?? null;
         $event = $filters['event']['value'] ?? null;
         $logName = $filters['logName']['value'] ?? null;
+
+        if (filled($from)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['loggedAt'] >= $from)
+                ->values();
+        }
+
+        if (filled($until)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['loggedAt'] <= $until.'T23:59:59')
+                ->values();
+        }
+
+        if (filled($actorLabel)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['actorLabel'] === $actorLabel)
+                ->values();
+        }
+
+        if (filled($subjectLabel)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['subjectLabel'] === $subjectLabel)
+                ->values();
+        }
 
         if (filled($event)) {
             $records = $records
@@ -329,6 +429,32 @@ final class AuditTrailPage extends OpsPage implements HasTable
         }
 
         return collect($records->all());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function actorFilterOptions(): array
+    {
+        return $this->activityRecords()
+            ->pluck('actorLabel')
+            ->unique()
+            ->sort()
+            ->mapWithKeys(static fn (string $actorLabel): array => [$actorLabel => $actorLabel])
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function subjectFilterOptions(): array
+    {
+        return $this->activityRecords()
+            ->pluck('subjectLabel')
+            ->unique()
+            ->sort()
+            ->mapWithKeys(static fn (string $subjectLabel): array => [$subjectLabel => $subjectLabel])
+            ->all();
     }
 
     /**
@@ -357,6 +483,47 @@ final class AuditTrailPage extends OpsPage implements HasTable
             ->sort()
             ->mapWithKeys(static fn (string $logName): array => [$logName => $logName])
             ->all();
+    }
+
+    private function exportFilteredActivity(): mixed
+    {
+        $records = $this->applyFilters($this->activityRecords(), $this->tableFilters);
+
+        if (filled($this->tableSearch)) {
+            $needle = mb_strtolower(trim((string) $this->tableSearch));
+
+            $records = $records->filter(static function (array $record) use ($needle): bool {
+                return str_contains(mb_strtolower($record['description']), $needle)
+                    || str_contains(mb_strtolower((string) $record['event']), $needle)
+                    || str_contains(mb_strtolower((string) $record['logName']), $needle)
+                    || str_contains(mb_strtolower((string) $record['actorLabel']), $needle)
+                    || str_contains(mb_strtolower((string) $record['subjectLabel']), $needle)
+                    || str_contains(mb_strtolower((string) $record['contextPreview']), $needle)
+                    || str_contains(mb_strtolower($record['loggedAt']), $needle);
+            })->values();
+        }
+
+        $records = $records->sortBy($this->tableSortColumn ?? 'sortLoggedAt', SORT_NATURAL, ($this->tableSortDirection ?? 'desc') === 'desc')->values();
+
+        $lines = collect([
+            ['id', 'loggedAt', 'event', 'logName', 'actorLabel', 'subjectLabel', 'description', 'contextPreview'],
+            ...$records->map(static fn (array $record): array => [
+                $record['id'],
+                $record['loggedAt'],
+                $record['event'],
+                $record['logName'],
+                $record['actorLabel'],
+                $record['subjectLabel'],
+                $record['description'],
+                $record['contextPreview'] ?? '',
+            ])->all(),
+        ])->map(static function (array $row): string {
+            return implode(',', array_map(static fn (mixed $value): string => '"'.str_replace('"', '""', (string) $value).'"', $row));
+        })->implode("\n");
+
+        return response()->streamDownload(static function () use ($lines): void {
+            echo $lines;
+        }, 'audit-trail.csv', ['Content-Type' => 'text/csv']);
     }
 
     private function emptyStateHeading(): string

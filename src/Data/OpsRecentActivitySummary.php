@@ -19,5 +19,7 @@ final readonly class OpsRecentActivitySummary
         public ?string $latestDescription,
         public ?string $latestAt,
         public array $items,
+        public ?string $cachedAt = null,
+        public ?string $source = null,
     ) {}
 }

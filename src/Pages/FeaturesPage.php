@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -14,9 +15,12 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use YezzMedia\Ops\Support\OpsFeatureOverviewResolver;
 
 /**
@@ -39,7 +43,7 @@ final class FeaturesPage extends OpsPage implements HasTable
     protected string $view = 'ops::pages.features-page';
 
     /**
-     * @var list<array{name: string, label: string, package: string, description: ?string, packageDescription: ?string, entryPoints: list<string>}>
+     * @var list<array{name: string, label: string, package: string, description: ?string, packageDescription: ?string, entryPoints: list<string>, entryPointsLabel: string, hasEntryPoints: bool, sortKey: string}>
      */
     public array $features = [];
 
@@ -53,8 +57,10 @@ final class FeaturesPage extends OpsPage implements HasTable
         return $table
             ->heading('Platform features')
             ->description('Registered platform features with package ownership and related operator entry points.')
-            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, array $filters, int $page, int $recordsPerPage): LengthAwarePaginator {
                 $records = $this->featureRecords();
+
+                $records = $this->applyFilters($records, $filters);
 
                 if (filled($search)) {
                     $needle = mb_strtolower(trim((string) $search));
@@ -85,19 +91,37 @@ final class FeaturesPage extends OpsPage implements HasTable
             })
             ->defaultSort('sortKey')
             ->searchable()
+            ->filters([
+                SelectFilter::make('package')
+                    ->label('Package')
+                    ->options(fn (): array => $this->packageFilterOptions())
+                    ->searchable(),
+                Filter::make('has_entry_points')
+                    ->label('Has entry points'),
+            ])
             ->paginated([10, 25, 50])
+            ->headerActions([
+                Action::make('exportFiltered')
+                    ->label('Export CSV')
+                    ->icon(Heroicon::OutlinedArrowDownTray)
+                    ->color('gray')
+                    ->action(fn () => $this->exportFilteredFeatures()),
+            ])
             ->columns([
+                TextColumn::make('name')
+                    ->label('Key')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('label')
                     ->label('Feature')
-                    ->description(fn (array $record): string => $record['name'])
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('package')
-                    ->badge()
-                    ->color('gray')
-                    ->description(fn (array $record): ?string => $record['packageDescription'])
+                    ->label('Package')
+                    ->state(static fn (array $record): string => Str::of($record['package'])->replaceFirst('/', "\n")->toString())
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->wrap(),
                 TextColumn::make('description')
                     ->formatStateUsing(static fn (string $state): string => $state)
                     ->wrap(),
@@ -167,7 +191,7 @@ final class FeaturesPage extends OpsPage implements HasTable
     }
 
     /**
-     * @return Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, sortKey: string}>
+     * @return Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, hasEntryPoints: bool, sortKey: string}>
      */
     private function featureRecords(): Collection
     {
@@ -182,9 +206,87 @@ final class FeaturesPage extends OpsPage implements HasTable
                     'entryPointsLabel' => $entryPoints === []
                         ? 'No package pages'
                         : implode(', ', $entryPoints),
+                    'hasEntryPoints' => $entryPoints !== [],
                     'sortKey' => sprintf('%s::%s', $record['package'], $record['name']),
                 ];
             });
+    }
+
+    /**
+     * @param  Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, hasEntryPoints: bool, sortKey: string}>  $records
+     * @param  array<string, array<string, mixed>>  $filters
+     * @return Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, hasEntryPoints: bool, sortKey: string}>
+     */
+    private function applyFilters(Collection $records, array $filters): Collection
+    {
+        $package = $filters['package']['value'] ?? null;
+
+        if (filled($package)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['package'] === $package)
+                ->values();
+        }
+
+        if ($filters['has_entry_points']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['hasEntryPoints'])
+                ->values();
+        }
+
+        return collect($records->all());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function packageFilterOptions(): array
+    {
+        return $this->featureRecords()
+            ->pluck('package')
+            ->unique()
+            ->sort()
+            ->mapWithKeys(static fn (string $package): array => [$package => $package])
+            ->all();
+    }
+
+    private function exportFilteredFeatures(): mixed
+    {
+        $records = $this->applyFilters($this->featureRecords(), $this->tableFilters);
+
+        if (filled($this->tableSearch)) {
+            $needle = mb_strtolower(trim((string) $this->tableSearch));
+
+            $records = $records->filter(static function (array $record) use ($needle): bool {
+                return str_contains(mb_strtolower($record['name']), $needle)
+                    || str_contains(mb_strtolower($record['label']), $needle)
+                    || str_contains(mb_strtolower($record['package']), $needle)
+                    || str_contains(mb_strtolower($record['description']), $needle)
+                    || str_contains(mb_strtolower($record['packageDescription']), $needle)
+                    || str_contains(mb_strtolower($record['entryPointsLabel']), $needle);
+            })->values();
+        }
+
+        $records = $records
+            ->sortBy($this->tableSortColumn ?? 'sortKey', SORT_NATURAL, ($this->tableSortDirection ?? 'asc') === 'desc')
+            ->values();
+
+        $csv = collect([
+            ['name', 'label', 'package', 'description', 'packageDescription', 'entryPointsLabel'],
+            ...$records->map(static fn (array $record): array => [
+                $record['name'],
+                $record['label'],
+                $record['package'],
+                $record['description'],
+                $record['packageDescription'],
+                $record['entryPointsLabel'],
+            ])->all(),
+        ])->map(static function (array $row): string {
+            return implode(',', array_map(static fn (mixed $value): string => '"'.str_replace('"', '""', (string) $value).'"', $row));
+        })->implode("\n");
+
+        return response()->streamDownload(static function () use ($csv): void {
+            echo $csv;
+        }, 'platform-features.csv', ['Content-Type' => 'text/csv']);
     }
 
     private function featureCount(): int

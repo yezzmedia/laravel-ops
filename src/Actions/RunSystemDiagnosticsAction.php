@@ -7,6 +7,7 @@ namespace YezzMedia\Ops\Actions;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Auth;
 use Throwable;
+use YezzMedia\Ops\Contracts\OpsAuditWriter;
 use YezzMedia\Ops\Data\OpsDiagnosticsSummary;
 use YezzMedia\Ops\Events\SystemDiagnosticsRefreshed;
 use YezzMedia\Ops\Support\OpsAuthorizationResolver;
@@ -24,6 +25,7 @@ final class RunSystemDiagnosticsAction
         private readonly OpsDiagnosticsCacheManager $cache,
         private readonly OpsDiagnosticsSummaryResolver $summaries,
         private readonly OpsGuardResolver $guards,
+        private readonly OpsAuditWriter $audit,
     ) {}
 
     public function run(): void
@@ -33,14 +35,18 @@ final class RunSystemDiagnosticsAction
         $operatorKey = $this->operatorKey();
 
         if (! $this->cache->acquireLock($operatorKey)) {
-            $this->dispatch($this->latestOrFallback('failed'));
+            $summary = $this->latestOrFallback('failed');
+            $this->recordFailedOperatorActivity($summary, 'lock');
+            $this->dispatch($summary);
 
             return;
         }
 
         try {
             if (! $this->cache->acquireCooldown($operatorKey)) {
-                $this->dispatch($this->latestOrFallback('failed'));
+                $summary = $this->latestOrFallback('failed');
+                $this->recordFailedOperatorActivity($summary, 'cooldown');
+                $this->dispatch($summary);
 
                 return;
             }
@@ -49,10 +55,12 @@ final class RunSystemDiagnosticsAction
 
             $this->cache->invalidateDiagnosticsViewCaches();
             $this->cache->storeLatestSummary($summary);
-            $this->recordOperatorActivity($summary);
+            $this->recordSuccessfulOperatorActivity($summary);
             $this->dispatch($summary);
         } catch (Throwable) {
-            $this->dispatch($this->latestOrFallback('failed'));
+            $summary = $this->latestOrFallback('failed');
+            $this->recordFailedOperatorActivity($summary, 'exception');
+            $this->dispatch($summary);
         } finally {
             $this->cache->releaseLock($operatorKey);
         }
@@ -83,27 +91,34 @@ final class RunSystemDiagnosticsAction
             : 'guest';
     }
 
-    private function recordOperatorActivity(OpsDiagnosticsSummary $summary): void
+    private function recordSuccessfulOperatorActivity(OpsDiagnosticsSummary $summary): void
     {
-        if (! $summary->auditInstalled || ! function_exists('activity')) {
+        if (! $summary->auditInstalled) {
             return;
         }
 
-        $guard = $this->guards->resolve()['guard'];
-        $operator = Auth::guard($guard)->user();
-        $activity = activity()
-            ->useLog('ops')
-            ->event('diagnostics_refresh')
-            ->withProperties([
-                'status' => $summary->status,
-                'failing_count' => $summary->failingCount,
-                'warning_count' => $summary->warningCount,
-            ]);
+        $this->audit->write('ops.diagnostics.refreshed', [
+            'operator_id' => $this->operatorKey(),
+            'status' => $summary->status,
+            'failing_count' => $summary->failingCount,
+            'warning_count' => $summary->warningCount,
+            'completed_at' => $summary->completedAt,
+        ]);
+    }
 
-        if ($operator instanceof Authenticatable) {
-            $activity->causedBy($operator);
+    private function recordFailedOperatorActivity(OpsDiagnosticsSummary $summary, string $reason): void
+    {
+        if (! $summary->auditInstalled) {
+            return;
         }
 
-        $activity->log('Ops diagnostics were refreshed.');
+        $this->audit->write('ops.diagnostics.refresh_failed', [
+            'operator_id' => $this->operatorKey(),
+            'status' => $summary->status,
+            'reason' => $reason,
+            'failing_count' => $summary->failingCount,
+            'warning_count' => $summary->warningCount,
+            'completed_at' => $summary->completedAt,
+        ]);
     }
 }

@@ -114,7 +114,10 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         ])
         ->and($table->getHeading())->toBe('Platform features')
         ->and($table->getDescription())->toBe('Registered platform features with package ownership and related operator entry points.')
-        ->and(array_keys($table->getColumns()))->toBe(['label', 'package', 'description', 'entryPointsLabel'])
+        ->and(array_keys($table->getColumns()))->toBe(['name', 'label', 'package', 'description', 'entryPointsLabel'])
+        ->and(array_keys($table->getFilters()))->toBe(['package', 'has_entry_points'])
+        ->and($table->getHeaderActions())->toHaveCount(1)
+        ->and($table->getPaginationPageOptions())->toBe([10, 25, 50])
         ->and($table->getEmptyStateHeading())->toBe('No platform features are currently registered.');
 
     $diagnosticsPage = app(SystemHealthPage::class);
@@ -162,6 +165,8 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         'activityCount',
         'latestDescription',
         'latestAt',
+        'cachedAt',
+        'source',
         'items',
     ])
         ->and($auditHeroSummary)->toMatchArray([
@@ -648,6 +653,7 @@ it('loads the audit page when recent activity items are available', function ():
         ->and($page->summary['items'][0]['id'])->toBe('audit-01')
         ->and($page->summary['items'][0]['description'])->toBe('Audit event #01')
         ->and($page->summary['items'][0]['logName'])->toBe('access')
+        ->and($page->summary['source'] ?? 'fresh read')->toBe('fresh read')
         ->and($activityRecords)->toHaveCount(50)
         ->and($page->table(Table::make($page))->getPaginationPageOptions())->toBe([10, 25, 50])
         ->and($activityRecord['id'])->toBe('audit-01')
@@ -696,6 +702,7 @@ it('loads audit entry details for one recent activity record', function (): void
             'actorLabel' => 'User #1',
             'subjectLabel' => 'Role #1',
             'contextPreview' => 'package=ops.01, actor=User #1',
+            'sourceLabel' => 'fresh read',
             'backend' => 'activitylog',
         ])
         ->and($page->details['contextRows'])->toContain([

@@ -18,7 +18,7 @@ final class OpsAuditEntryDetailsResolver
 
     /**
      * @return array{
-     *     summary: array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, backend: string, statusLabel: string, statusTone: string},
+     *     summary: array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextJson: string, changesJson: string, backend: string, statusLabel: string, statusTone: string, sourceLabel: string, cachedAt: ?string},
      *     contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>,
      *     changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>
      * }
@@ -44,9 +44,13 @@ final class OpsAuditEntryDetailsResolver
                 'actorLabel' => $item->actorLabel,
                 'subjectLabel' => $item->subjectLabel,
                 'contextPreview' => $item->contextPreview,
+                'contextJson' => json_encode($item->contextRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+                'changesJson' => json_encode($item->changesRows, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
                 'backend' => $summary->backend ?? 'Unavailable',
                 'statusLabel' => str($summary->status)->headline()->toString(),
                 'statusTone' => $this->statusTone($summary->status),
+                'sourceLabel' => $summary->source ?? 'fresh read',
+                'cachedAt' => $summary->cachedAt,
             ],
             'contextRows' => $item->contextRows,
             'changesRows' => $item->changesRows,
