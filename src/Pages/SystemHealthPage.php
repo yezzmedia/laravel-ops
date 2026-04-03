@@ -6,6 +6,8 @@ namespace YezzMedia\Ops\Pages;
 
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Infolists\Components\RepeatableEntry;
+use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
@@ -24,9 +26,6 @@ use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
 use YezzMedia\Ops\Support\OpsAuthorizationResolver;
 use YezzMedia\Ops\Support\OpsDiagnosticsSummaryResolver;
 use YezzMedia\Ops\Support\OpsRuntimePostureResolver;
-use YezzMedia\Ops\Widgets\ApplicationRuntimeWidget;
-use YezzMedia\Ops\Widgets\DriversRuntimeWidget;
-use YezzMedia\Ops\Widgets\IntegrationsRuntimeWidget;
 
 /**
  * Shows diagnostics posture and curated runtime visibility for operators.
@@ -160,35 +159,6 @@ final class SystemHealthPage extends OpsPage implements HasTable
             ->emptyStateHeading('No doctor checks are currently available.');
     }
 
-    protected function getFooterWidgets(): array
-    {
-        if (! $this->showsRuntime) {
-            return [];
-        }
-
-        return [
-            ApplicationRuntimeWidget::class,
-            DriversRuntimeWidget::class,
-            IntegrationsRuntimeWidget::class,
-        ];
-    }
-
-    public function getFooterWidgetsColumns(): array
-    {
-        return [
-            'md' => 2,
-            'xl' => 3,
-        ];
-    }
-
-    public function getWidgetData(): array
-    {
-        return [
-            'summary' => $this->summary,
-            'runtime' => $this->runtime,
-        ];
-    }
-
     public function diagnosticsHeroSummary(): array
     {
         return [
@@ -256,6 +226,12 @@ final class SystemHealthPage extends OpsPage implements HasTable
                     ])
                     ->columns(3),
             ]);
+    }
+
+    public function diagnosticsRuntimeInfolist(Schema $schema): Schema
+    {
+        return $schema
+            ->components($this->runtimeSections());
     }
 
     public function diagnosticsDetailInfolist(Schema $schema): Schema
@@ -368,5 +344,84 @@ final class SystemHealthPage extends OpsPage implements HasTable
         }
 
         return 'gray';
+    }
+
+    /**
+     * @return list<array{title: string, description: string, items: list<array{label: string, value: string, description: string}>}>
+     */
+    public function runtimeSectionBlueprints(): array
+    {
+        return self::runtimeSectionBlueprintsFor($this->runtime);
+    }
+
+    /**
+     * @param  list<array{title: string, items: list<array{label: string, value: string, description: string}>}>  $runtime
+     * @return list<array{title: string, description: string, items: list<array{label: string, value: string, description: string}>}>
+     */
+    public static function runtimeSectionBlueprintsFor(array $runtime): array
+    {
+        return collect($runtime)
+            ->map(static function (array $section): array {
+                return [
+                    'title' => $section['title'],
+                    'description' => self::runtimeSectionDescriptionFor($section['title']),
+                    'items' => $section['items'],
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<Section>
+     */
+    private function runtimeSections(): array
+    {
+        return collect($this->runtimeSectionBlueprints())
+            ->map(function (array $section): Section {
+                return Section::make($section['title'])
+                    ->description($section['description'])
+                    ->icon(Heroicon::OutlinedCpuChip)
+                    ->schema([
+                        RepeatableEntry::make('items')
+                            ->state($section['items'])
+                            ->contained(false)
+                            ->table([
+                                TableColumn::make('Label'),
+                                TableColumn::make('Value'),
+                                TableColumn::make('Description'),
+                            ])
+                            ->schema([
+                                TextEntry::make('label'),
+                                TextEntry::make('value')
+                                    ->badge()
+                                    ->color(fn (string $state): string => $this->runtimeValueTone($state)),
+                                TextEntry::make('description')
+                                    ->wrap(),
+                            ])
+                            ->placeholder('Runtime posture data is currently unavailable.'),
+                    ]);
+            })
+            ->values()
+            ->all();
+    }
+
+    private static function runtimeSectionDescriptionFor(string $title): string
+    {
+        return match ($title) {
+            'Application' => 'Application environment, debug posture, and resolved ops guard state.',
+            'Drivers' => 'Default host drivers that influence operator-facing runtime behavior.',
+            'Integrations' => 'Installed package integrations that enrich diagnostics and operator visibility.',
+            default => 'Runtime posture details for this section.',
+        };
+    }
+
+    private function runtimeValueTone(string $value): string
+    {
+        return match ($value) {
+            'Installed', 'Access integrated', 'Enabled' => 'success',
+            'Unavailable', 'Reduced mode', 'Disabled' => 'gray',
+            default => 'gray',
+        };
     }
 }

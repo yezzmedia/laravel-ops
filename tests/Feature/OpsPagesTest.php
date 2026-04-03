@@ -27,9 +27,6 @@ use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
 use YezzMedia\Ops\Tests\Fixtures\TestOpsUser;
-use YezzMedia\Ops\Widgets\ApplicationRuntimeWidget;
-use YezzMedia\Ops\Widgets\DriversRuntimeWidget;
-use YezzMedia\Ops\Widgets\IntegrationsRuntimeWidget;
 
 it('loads the read-oriented ops pages in reduced mode', function (): void {
     $user = TestOpsUser::fixture(['viewOpsPanel']);
@@ -73,7 +70,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
 
     $diagnosticsTable = $diagnosticsPage->table(Table::make($diagnosticsPage));
     $diagnosticsHeroSummary = $diagnosticsPage->diagnosticsHeroSummary();
-    $footerWidgets = (fn (): array => $this->getFooterWidgets())->call($diagnosticsPage);
+    $runtimeSections = SystemHealthPage::runtimeSectionBlueprintsFor($diagnosticsPage->runtime);
 
     expect($diagnosticsPage->summary)->toHaveKeys([
         'status',
@@ -95,10 +92,10 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         ->and($diagnosticsTable->getHeading())->toBe('Doctor checks')
         ->and($diagnosticsTable->getDescription())->toBe('Curated diagnostics posture from approved health sources.')
         ->and(array_keys($diagnosticsTable->getColumns()))->toBe(['key', 'package', 'status', 'message'])
-        ->and($footerWidgets)->toBe([
-            ApplicationRuntimeWidget::class,
-            DriversRuntimeWidget::class,
-            IntegrationsRuntimeWidget::class,
+        ->and($runtimeSections)->toHaveCount(3)
+        ->and($runtimeSections[0])->toMatchArray([
+            'title' => 'Application',
+            'description' => 'Application environment, debug posture, and resolved ops guard state.',
         ]);
 
     $auditPage = app(AuditTrailPage::class);
