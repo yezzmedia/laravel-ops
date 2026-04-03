@@ -10,6 +10,7 @@ use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\RepeatableEntry\TableColumn;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Url;
@@ -212,7 +213,7 @@ final class DoctorCheckDetailsPage extends OpsPage
                             ->schema([
                                 TextEntry::make('key'),
                                 TextEntry::make('valuePreview')
-                                    ->tooltip(fn (TextEntry $component): ?string => data_get($component->getContainer()->getState(), 'valueRaw'))
+                                    ->tooltip(fn (Get $get): ?string => $get('valueRaw'))
                                     ->copyable(),
                             ])
                             ->placeholder('This doctor check did not expose additional raw context.'),
