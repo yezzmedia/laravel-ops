@@ -11,7 +11,9 @@ use YezzMedia\Foundation\Registry\FeatureRegistry;
 use YezzMedia\Foundation\Registry\OpsModuleRegistry;
 use YezzMedia\Foundation\Registry\PackageRegistry;
 use YezzMedia\Foundation\Registry\PermissionRegistry;
+use YezzMedia\Ops\Actions\RefreshAuditSnapshotAction;
 use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
+use YezzMedia\Ops\Contracts\OpsAuditWriter;
 use YezzMedia\Ops\OpsPlatformPackage;
 use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditEntryDetailsPage;
@@ -64,8 +66,10 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsRecentActivityCacheManager::class))->toBeInstanceOf(OpsRecentActivityCacheManager::class)
         ->and(app(OpsRecentActivityResolver::class))->toBeInstanceOf(OpsRecentActivityResolver::class)
         ->and(app(OpsAuditEntryDetailsResolver::class))->toBeInstanceOf(OpsAuditEntryDetailsResolver::class)
+        ->and(app(OpsAuditWriter::class))->toBeInstanceOf(OpsAuditWriter::class)
         ->and(app(OpsAccessBridge::class))->toBeInstanceOf(OpsAccessBridge::class)
         ->and(app(RunSystemDiagnosticsAction::class))->toBeInstanceOf(RunSystemDiagnosticsAction::class)
+        ->and(app(RefreshAuditSnapshotAction::class))->toBeInstanceOf(RefreshAuditSnapshotAction::class)
         ->and(app(OpsNavigationResolver::class))->toBeInstanceOf(OpsNavigationResolver::class)
         ->and(app(FeatureRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
             'ops.packages',
@@ -136,5 +140,6 @@ it('describes the approved ops package surface', function (): void {
         ->and($metadata->packageClass)->toBe(OpsPlatformPackage::class)
         ->and($package->permissionDefinitions())->toHaveCount(9)
         ->and($package->featureDefinitions())->toHaveCount(5)
+        ->and($package->auditEventDefinitions())->toHaveCount(3)
         ->and($package->opsModuleDefinitions())->toBe([]);
 });

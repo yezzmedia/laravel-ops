@@ -46,6 +46,7 @@ it('builds audit entry details from the recent activity snapshot', function (): 
         'backend' => 'activitylog',
         'statusLabel' => 'Available',
         'statusTone' => 'success',
+        'sourceLabel' => 'cache',
     ])
         ->and($details['contextRows'])->toContain([
             'key' => 'role',

@@ -36,7 +36,7 @@ final class AuditEntryDetailsPage extends OpsPage
 
     /**
      * @var array{
-     *     summary: array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, backend: string, statusLabel: string, statusTone: string},
+     *     summary: array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextJson: string, changesJson: string, backend: string, statusLabel: string, statusTone: string, sourceLabel: string, cachedAt: ?string},
      *     contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>,
      *     changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>
      * }
@@ -51,9 +51,13 @@ final class AuditEntryDetailsPage extends OpsPage
             'actorLabel' => 'System',
             'subjectLabel' => 'Unknown subject',
             'contextPreview' => null,
+            'contextJson' => '[]',
+            'changesJson' => '[]',
             'backend' => 'Unavailable',
             'statusLabel' => 'Unavailable',
             'statusTone' => 'gray',
+            'sourceLabel' => 'fresh read',
+            'cachedAt' => null,
         ],
         'contextRows' => [],
         'changesRows' => [],
@@ -105,6 +109,12 @@ final class AuditEntryDetailsPage extends OpsPage
                             ->label('Backend')
                             ->badge()
                             ->color('gray'),
+                        TextEntry::make('summary.sourceLabel')
+                            ->label('Snapshot source')
+                            ->badge()
+                            ->color('gray'),
+                        TextEntry::make('summary.cachedAt')
+                            ->label('Snapshot refreshed at'),
                         TextEntry::make('summary.loggedAt')
                             ->label('Logged at'),
                         TextEntry::make('summary.event')
@@ -129,6 +139,14 @@ final class AuditEntryDetailsPage extends OpsPage
                         TextEntry::make('summary.contextPreview')
                             ->label('Context preview')
                             ->placeholder('No context preview is available.')
+                            ->columnSpanFull(),
+                        TextEntry::make('summary.contextJson')
+                            ->label('Raw context JSON')
+                            ->copyable()
+                            ->columnSpanFull(),
+                        TextEntry::make('summary.changesJson')
+                            ->label('Raw changes JSON')
+                            ->copyable()
                             ->columnSpanFull(),
                         TextEntry::make('summary.description')
                             ->label('Description')

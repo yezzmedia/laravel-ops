@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace YezzMedia\Ops;
 
 use Illuminate\Support\Facades\Event;
+use Spatie\Activitylog\Support\ActivityLogger;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use YezzMedia\Foundation\Doctor\DoctorManager;
@@ -15,8 +16,12 @@ use YezzMedia\Foundation\Registry\PermissionRegistry;
 use YezzMedia\Foundation\Support\CacheKeyFactory;
 use YezzMedia\Foundation\Support\IntegrationManager;
 use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
+use YezzMedia\Ops\Actions\RefreshAuditSnapshotAction;
 use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
+use YezzMedia\Ops\Contracts\OpsAuditWriter;
+use YezzMedia\Ops\Support\ActivityLogOpsAuditWriter;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
+use YezzMedia\Ops\Support\NullOpsAuditWriter;
 use YezzMedia\Ops\Support\OpsAccessBridge;
 use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
 use YezzMedia\Ops\Support\OpsAuthorizationResolver;
@@ -52,6 +57,7 @@ class OpsServiceProvider extends PackageServiceProvider
     public function packageRegistered(): void
     {
         $this->app->singleton(OpsGuardResolver::class);
+        $this->app->singleton(OpsAuditWriter::class, fn (): OpsAuditWriter => $this->makeOpsAuditWriter());
         $this->app->singleton(OpsDiagnosticsCacheManager::class, function (): OpsDiagnosticsCacheManager {
             return new OpsDiagnosticsCacheManager($this->app->make(CacheKeyFactory::class));
         });
@@ -157,6 +163,15 @@ class OpsServiceProvider extends PackageServiceProvider
                 cache: $this->app->make(OpsDiagnosticsCacheManager::class),
                 summaries: $this->app->make(OpsDiagnosticsSummaryResolver::class),
                 guards: $this->app->make(OpsGuardResolver::class),
+                audit: $this->app->make(OpsAuditWriter::class),
+            );
+        });
+        $this->app->singleton(RefreshAuditSnapshotAction::class, function (): RefreshAuditSnapshotAction {
+            return new RefreshAuditSnapshotAction(
+                authorization: $this->app->make(OpsAuthorizationResolver::class),
+                cache: $this->app->make(OpsRecentActivityCacheManager::class),
+                summary: $this->app->make(OpsRecentActivityResolver::class),
+                audit: $this->app->make(OpsAuditWriter::class),
             );
         });
     }
@@ -166,6 +181,21 @@ class OpsServiceProvider extends PackageServiceProvider
         $this->app->make(PlatformPackageRegistrar::class)->register(new OpsPlatformPackage);
 
         $this->registerRecentActivityInvalidation();
+    }
+
+    private function makeOpsAuditWriter(): OpsAuditWriter
+    {
+        $provider = config('ops.integrations.audit.provider');
+
+        if (! is_string($provider) || $provider === '') {
+            return new NullOpsAuditWriter;
+        }
+
+        if (! class_exists($provider) || ! class_exists(ActivityLogger::class)) {
+            return new NullOpsAuditWriter;
+        }
+
+        return new ActivityLogOpsAuditWriter($this->app->make(ActivityLogger::class));
     }
 
     private function registerRecentActivityInvalidation(): void

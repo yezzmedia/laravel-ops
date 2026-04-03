@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace YezzMedia\Ops;
 
+use YezzMedia\Foundation\Contracts\DefinesAuditEvents;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
+use YezzMedia\Foundation\Data\AuditEventDefinition;
 use YezzMedia\Foundation\Data\FeatureDefinition;
 use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
@@ -16,7 +18,7 @@ use YezzMedia\Foundation\Data\PermissionDefinition;
 /**
  * Describes the stable ops-owned package surface for foundation registration.
  */
-final class OpsPlatformPackage implements DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
+final class OpsPlatformPackage implements DefinesAuditEvents, DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
 {
     public function metadata(): PackageMetadata
     {
@@ -81,6 +83,42 @@ final class OpsPlatformPackage implements DefinesPermissions, PlatformPackage, P
                 'yezzmedia/laravel-ops',
                 'Audit visibility',
                 'Operator-facing audit visibility and recent operational activity when a supported audit backend is available.',
+            ),
+        ];
+    }
+
+    /**
+     * @return array<int, AuditEventDefinition>
+     */
+    public function auditEventDefinitions(): array
+    {
+        return [
+            new AuditEventDefinition(
+                key: 'ops.diagnostics.refreshed',
+                package: 'yezzmedia/laravel-ops',
+                action: 'refreshed',
+                subjectType: 'diagnostics_snapshot',
+                description: 'Ops diagnostics were refreshed.',
+                severity: 'info',
+                contextKeys: ['status', 'failing_count', 'warning_count', 'completed_at'],
+            ),
+            new AuditEventDefinition(
+                key: 'ops.diagnostics.refresh_failed',
+                package: 'yezzmedia/laravel-ops',
+                action: 'failed',
+                subjectType: 'diagnostics_snapshot',
+                description: 'Ops diagnostics refresh failed.',
+                severity: 'warning',
+                contextKeys: ['operator_id', 'status', 'reason', 'failing_count', 'warning_count', 'completed_at'],
+            ),
+            new AuditEventDefinition(
+                key: 'ops.audit.snapshot_refreshed',
+                package: 'yezzmedia/laravel-ops',
+                action: 'refreshed',
+                subjectType: 'audit_snapshot',
+                description: 'Ops audit snapshot was refreshed.',
+                severity: 'info',
+                contextKeys: ['backend', 'status', 'activity_count', 'cached_at', 'source'],
             ),
         ];
     }

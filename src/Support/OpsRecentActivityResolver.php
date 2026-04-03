@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace YezzMedia\Ops\Support;
 
+use Illuminate\Support\Carbon;
 use Throwable;
 use YezzMedia\Ops\Data\OpsRecentActivitySummary;
 
@@ -23,7 +24,16 @@ final class OpsRecentActivityResolver
         $cachedSummary = $this->cache->summary();
 
         if ($cachedSummary instanceof OpsRecentActivitySummary) {
-            return $cachedSummary;
+            return new OpsRecentActivitySummary(
+                status: $cachedSummary->status,
+                backend: $cachedSummary->backend,
+                activityCount: $cachedSummary->activityCount,
+                latestDescription: $cachedSummary->latestDescription,
+                latestAt: $cachedSummary->latestAt,
+                items: $cachedSummary->items,
+                cachedAt: $cachedSummary->cachedAt,
+                source: 'cache',
+            );
         }
 
         $integrationState = $this->integrations->resolve();
@@ -36,6 +46,8 @@ final class OpsRecentActivityResolver
                 latestDescription: null,
                 latestAt: null,
                 items: [],
+                cachedAt: Carbon::now()->toIso8601String(),
+                source: 'fresh read',
             );
 
             $this->cache->store($summary);
@@ -53,6 +65,8 @@ final class OpsRecentActivityResolver
                 latestDescription: $items[0]->description ?? null,
                 latestAt: $items[0]->loggedAt ?? null,
                 items: $items,
+                cachedAt: Carbon::now()->toIso8601String(),
+                source: 'fresh read',
             );
         } catch (Throwable) {
             $summary = new OpsRecentActivitySummary(
@@ -62,6 +76,8 @@ final class OpsRecentActivityResolver
                 latestDescription: null,
                 latestAt: null,
                 items: [],
+                cachedAt: Carbon::now()->toIso8601String(),
+                source: 'fresh read',
             );
         }
 

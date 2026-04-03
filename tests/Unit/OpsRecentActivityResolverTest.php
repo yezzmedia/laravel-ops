@@ -39,6 +39,7 @@ it('returns recent activity from the configured backend when available', functio
         ->and($summary->backend)->toBe('activitylog')
         ->and($summary->activityCount)->toBe(2)
         ->and($summary->latestDescription)->toBe('Permissions synchronized.')
+        ->and($summary->source)->toBe('fresh read')
         ->and(app(OpsRecentActivityCacheManager::class)->summary())->toBeInstanceOf(OpsRecentActivitySummary::class);
 });
 
