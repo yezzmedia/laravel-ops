@@ -18,6 +18,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use YezzMedia\Ops\Http\Middleware\AuthorizeOpsPanelAccess;
 use YezzMedia\Ops\Pages\AccessManagementPage;
+use YezzMedia\Ops\Pages\AuditEntryDetailsPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\DoctorCheckDetailsPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
@@ -55,6 +56,7 @@ class OpsPanelProvider extends PanelProvider
                 PermissionsPage::class,
                 AccessManagementPage::class,
                 AuditTrailPage::class,
+                AuditEntryDetailsPage::class,
             ])
             ->widgets([
                 InstalledPackagesWidget::class,

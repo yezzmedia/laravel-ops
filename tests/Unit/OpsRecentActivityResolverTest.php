@@ -23,11 +23,11 @@ it('returns recent activity from the configured backend when available', functio
     config()->set('ops.integrations.audit.provider', stdClass::class);
     app()->instance(ActivitylogRecentActivityReader::class, new class extends ActivitylogRecentActivityReader
     {
-        public function read(int $limit = 5): array
+        public function read(?int $limit = null): array
         {
             return [
-                new OpsRecentActivityItem('Permissions synchronized.', 'updated', 'ops', now()->toIso8601String()),
-                new OpsRecentActivityItem('Roles synchronized.', 'updated', 'ops', now()->subMinute()->toIso8601String()),
+                new OpsRecentActivityItem('Permissions synchronized.', 'updated', 'ops', now()->toIso8601String(), actorLabel: 'User #1', subjectLabel: 'Role #1', contextPreview: 'role=super-admin', contextRows: [], changesRows: []),
+                new OpsRecentActivityItem('Roles synchronized.', 'updated', 'ops', now()->subMinute()->toIso8601String(), actorLabel: 'User #1', subjectLabel: 'Role #2', contextPreview: null, contextRows: [], changesRows: []),
             ];
         }
     });
@@ -46,7 +46,7 @@ it('returns a degraded summary when the activity backend cannot be read', functi
     config()->set('ops.integrations.audit.provider', stdClass::class);
     app()->instance(ActivitylogRecentActivityReader::class, new class extends ActivitylogRecentActivityReader
     {
-        public function read(int $limit = 5): array
+        public function read(?int $limit = null): array
         {
             throw new RuntimeException('boom');
         }

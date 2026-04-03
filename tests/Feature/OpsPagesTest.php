@@ -18,6 +18,7 @@ use YezzMedia\Foundation\Doctor\DoctorManager;
 use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
 use YezzMedia\Ops\Data\OpsRecentActivityItem;
 use YezzMedia\Ops\Pages\AccessManagementPage;
+use YezzMedia\Ops\Pages\AuditEntryDetailsPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\DoctorCheckDetailsPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
@@ -26,7 +27,58 @@ use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
+use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
+use YezzMedia\Ops\Support\OpsRecentActivityCacheManager;
+use YezzMedia\Ops\Support\OpsRecentActivityResolver;
 use YezzMedia\Ops\Tests\Fixtures\TestOpsUser;
+
+/**
+ * @return list<OpsRecentActivityItem>
+ */
+function auditActivityFixtures(int $count = 50): array
+{
+    return array_map(
+        static function (int $index): OpsRecentActivityItem {
+            $events = ['created', 'updated', 'deleted', 'restored'];
+            $logs = ['access', 'ops', 'activitylog'];
+            $subjects = ['Role', 'Permission', 'Package'];
+            $actorNumber = (($index - 1) % 8) + 1;
+
+            return new OpsRecentActivityItem(
+                description: sprintf('Audit event #%02d', $index),
+                event: $events[($index - 1) % count($events)],
+                logName: $logs[($index - 1) % count($logs)],
+                loggedAt: now()->subMinutes($index)->toIso8601String(),
+                id: sprintf('audit-%02d', $index),
+                actorLabel: sprintf('User #%d', $actorNumber),
+                subjectLabel: sprintf('%s #%d', $subjects[($index - 1) % count($subjects)], $index),
+                contextPreview: sprintf('package=ops.%02d, actor=User #%d', $index, $actorNumber),
+                contextRows: [
+                    [
+                        'key' => 'package',
+                        'valuePreview' => sprintf('ops.%02d', $index),
+                        'valueRaw' => sprintf('ops.%02d', $index),
+                    ],
+                    [
+                        'key' => 'actor',
+                        'valuePreview' => sprintf('User #%d', $actorNumber),
+                        'valueRaw' => sprintf('User #%d', $actorNumber),
+                    ],
+                ],
+                changesRows: $index % 2 === 0 ? [
+                    [
+                        'field' => 'status',
+                        'oldPreview' => 'draft',
+                        'oldRaw' => 'draft',
+                        'newPreview' => 'published',
+                        'newRaw' => 'published',
+                    ],
+                ] : [],
+            );
+        },
+        range(1, $count),
+    );
+}
 
 it('loads the read-oriented ops pages in reduced mode', function (): void {
     $user = TestOpsUser::fixture(['viewOpsPanel']);
@@ -119,7 +171,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
         ])
         ->and($auditTable->getHeading())->toBe('Recent audit activity')
         ->and($auditTable->getDescription())->toBe('Privileged and operator-visible activity from the configured audit backend.')
-        ->and(array_keys($auditTable->getColumns()))->toBe(['description', 'event', 'logName', 'loggedAt']);
+        ->and(array_keys($auditTable->getColumns()))->toBe(['description', 'actorLabel', 'subjectLabel', 'event', 'logName', 'contextPreview', 'loggedAt']);
 });
 
 it('loads registered feature records on the features page', function (): void {
@@ -572,29 +624,85 @@ it('loads the audit page when recent activity items are available', function ():
     auth()->guard('web')->login($user);
 
     config()->set('ops.integrations.audit.provider', stdClass::class);
+    app()->forgetInstance(ActivitylogRecentActivityReader::class);
+    app()->forgetInstance(OpsRecentActivityResolver::class);
+    app()->forgetInstance(OpsAuditEntryDetailsResolver::class);
+    app(OpsRecentActivityCacheManager::class)->invalidate();
     app()->instance(ActivitylogRecentActivityReader::class, new class extends ActivitylogRecentActivityReader
     {
-        public function read(int $limit = 5): array
+        public function read(?int $limit = null): array
         {
-            return [
-                new OpsRecentActivityItem('Permissions synchronized.', 'updated', 'access', now()->toIso8601String()),
-            ];
+            return auditActivityFixtures();
         }
     });
 
     $page = app(AuditTrailPage::class);
     $page->mount();
 
-    /** @var Collection<int, array{description: string, event: string, logName: string, loggedAt: string, sortLoggedAt: string}> $activityRecords */
+    /** @var Collection<int, array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>, sortLoggedAt: string}> $activityRecords */
     $activityRecords = (fn (): Collection => $this->activityRecords())->call($page);
-    $activityRecord = $activityRecords->sole();
+    $activityRecord = $activityRecords->first();
 
     expect($page->summary['status'])->toBe('available')
-        ->and($page->summary['items'][0]['description'])->toBe('Permissions synchronized.')
+        ->and($page->summary['items'])->toHaveCount(50)
+        ->and($page->summary['items'][0]['id'])->toBe('audit-01')
+        ->and($page->summary['items'][0]['description'])->toBe('Audit event #01')
         ->and($page->summary['items'][0]['logName'])->toBe('access')
-        ->and($activityRecords)->toHaveCount(1)
-        ->and($activityRecord['event'])->toBe('updated')
-        ->and($activityRecord['logName'])->toBe('access');
+        ->and($activityRecords)->toHaveCount(50)
+        ->and($page->table(Table::make($page))->getPaginationPageOptions())->toBe([10, 25, 50])
+        ->and($activityRecord['id'])->toBe('audit-01')
+        ->and($activityRecord['event'])->toBe('created')
+        ->and($activityRecord['logName'])->toBe('access')
+        ->and($activityRecord['actorLabel'])->toBe('User #1')
+        ->and($activityRecord['subjectLabel'])->toBe('Role #1')
+        ->and($activityRecord['contextPreview'])->toBe('package=ops.01, actor=User #1');
+});
+
+it('loads audit entry details for one recent activity record', function (): void {
+    $user = TestOpsUser::fixture(['viewOpsPanel']);
+
+    auth()->guard('web')->login($user);
+
+    config()->set('ops.integrations.audit.provider', stdClass::class);
+    app()->forgetInstance(ActivitylogRecentActivityReader::class);
+    app()->forgetInstance(OpsRecentActivityResolver::class);
+    app()->forgetInstance(OpsAuditEntryDetailsResolver::class);
+    app(OpsRecentActivityCacheManager::class)->invalidate();
+    app()->instance(ActivitylogRecentActivityReader::class, new class extends ActivitylogRecentActivityReader
+    {
+        public function read(?int $limit = null): array
+        {
+            return auditActivityFixtures();
+        }
+    });
+
+    $page = app(AuditEntryDetailsPage::class);
+    $page->entry = 'audit-01';
+    $page->mount();
+    $page->cacheInteractsWithHeaderActions();
+    $headerActions = array_values($page->getCachedHeaderActions());
+    $headerAction = $headerActions[0];
+
+    expect($page->getTitle())->toBe('Audit entry details')
+        ->and($page->getHeading())->toBe('Audit entry details')
+        ->and($page->getSubheading())->toBe('Audit event #01')
+        ->and($headerActions)->toHaveCount(1)
+        ->and($headerAction->getName())->toBe('backToAudit')
+        ->and($headerAction->getUrl())->toBe(AuditTrailPage::getUrl(panel: (string) config('ops.panel.id', 'ops')))
+        ->and($page->details['summary'])->toMatchArray([
+            'id' => 'audit-01',
+            'event' => 'created',
+            'logName' => 'access',
+            'actorLabel' => 'User #1',
+            'subjectLabel' => 'Role #1',
+            'contextPreview' => 'package=ops.01, actor=User #1',
+            'backend' => 'activitylog',
+        ])
+        ->and($page->details['contextRows'])->toContain([
+            'key' => 'package',
+            'valuePreview' => 'ops.01',
+            'valueRaw' => 'ops.01',
+        ]);
 });
 
 it('normalizes diagnostics check records for the doctor checks table', function (): void {

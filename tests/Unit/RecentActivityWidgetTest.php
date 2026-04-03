@@ -16,7 +16,7 @@ it('builds operator-facing stats from recent activity data', function (): void {
         latestDescription: 'Permissions synchronized.',
         latestAt: now()->toIso8601String(),
         items: [
-            new OpsRecentActivityItem('Permissions synchronized.', 'updated', 'ops', now()->toIso8601String()),
+            new OpsRecentActivityItem('Permissions synchronized.', 'updated', 'ops', now()->toIso8601String(), actorLabel: 'User #1', subjectLabel: 'Role #2', contextPreview: 'role=super-admin', contextRows: [], changesRows: []),
         ],
     ));
 
