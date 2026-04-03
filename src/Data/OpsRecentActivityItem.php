@@ -14,5 +14,17 @@ final readonly class OpsRecentActivityItem
         public ?string $event,
         public ?string $logName,
         public ?string $loggedAt,
+        public ?string $id = null,
+        public string $actorLabel = 'System',
+        public string $subjectLabel = 'Unknown subject',
+        public ?string $contextPreview = null,
+        /**
+         * @var list<array{key: string, valuePreview: string, valueRaw: string}>
+         */
+        public array $contextRows = [],
+        /**
+         * @var list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>
+         */
+        public array $changesRows = [],
     ) {}
 }

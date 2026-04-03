@@ -14,6 +14,7 @@ use YezzMedia\Foundation\Registry\PermissionRegistry;
 use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
 use YezzMedia\Ops\OpsPlatformPackage;
 use YezzMedia\Ops\Pages\AccessManagementPage;
+use YezzMedia\Ops\Pages\AuditEntryDetailsPage;
 use YezzMedia\Ops\Pages\AuditTrailPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\OpsDashboard;
@@ -22,6 +23,7 @@ use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\OpsAccessBridge;
+use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
 use YezzMedia\Ops\Support\OpsAuthorizationResolver;
 use YezzMedia\Ops\Support\OpsDiagnosticsCacheManager;
 use YezzMedia\Ops\Support\OpsDiagnosticsSummaryResolver;
@@ -61,6 +63,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsFeatureOverviewResolver::class))->toBeInstanceOf(OpsFeatureOverviewResolver::class)
         ->and(app(OpsRecentActivityCacheManager::class))->toBeInstanceOf(OpsRecentActivityCacheManager::class)
         ->and(app(OpsRecentActivityResolver::class))->toBeInstanceOf(OpsRecentActivityResolver::class)
+        ->and(app(OpsAuditEntryDetailsResolver::class))->toBeInstanceOf(OpsAuditEntryDetailsResolver::class)
         ->and(app(OpsAccessBridge::class))->toBeInstanceOf(OpsAccessBridge::class)
         ->and(app(RunSystemDiagnosticsAction::class))->toBeInstanceOf(RunSystemDiagnosticsAction::class)
         ->and(app(OpsNavigationResolver::class))->toBeInstanceOf(OpsNavigationResolver::class)
@@ -95,6 +98,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getPages())->toContain(PermissionsPage::class)
         ->and($panel?->getPages())->toContain(AccessManagementPage::class)
         ->and($panel?->getPages())->toContain(AuditTrailPage::class)
+        ->and($panel?->getPages())->toContain(AuditEntryDetailsPage::class)
         ->and($panel?->getWidgets())->toContain(InstalledPackagesWidget::class)
         ->and($panel?->getWidgets())->toContain(FailingChecksWidget::class)
         ->and($panel?->getWidgets())->toContain(RecentActivityWidget::class);

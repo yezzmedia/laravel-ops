@@ -14,6 +14,8 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -42,7 +44,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
     protected string $view = 'ops::pages.audit-trail-page';
 
     /**
-     * @var array{status: string, backend: ?string, activityCount: int, latestDescription: ?string, latestAt: ?string, items: list<array{description: string, event: ?string, logName: ?string, loggedAt: ?string}>}
+     * @var array{status: string, backend: ?string, activityCount: int, latestDescription: ?string, latestAt: ?string, items: list<array{id: string, description: string, event: ?string, logName: ?string, loggedAt: ?string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>}>}
      */
     public array $summary = [
         'status' => 'unavailable',
@@ -65,10 +67,16 @@ final class AuditTrailPage extends OpsPage implements HasTable
             'latestAt' => $summary->latestAt,
             'items' => array_map(
                 static fn (OpsRecentActivityItem $item): array => [
+                    'id' => $item->id ?? sha1(sprintf('%s|%s|%s|%s', $item->description, $item->event ?? '', $item->logName ?? '', $item->loggedAt ?? '')),
                     'description' => $item->description,
                     'event' => $item->event,
                     'logName' => $item->logName,
                     'loggedAt' => $item->loggedAt,
+                    'actorLabel' => $item->actorLabel,
+                    'subjectLabel' => $item->subjectLabel,
+                    'contextPreview' => $item->contextPreview,
+                    'contextRows' => $item->contextRows,
+                    'changesRows' => $item->changesRows,
                 ],
                 array_values($summary->items),
             ),
@@ -80,16 +88,21 @@ final class AuditTrailPage extends OpsPage implements HasTable
         return $table
             ->heading('Recent audit activity')
             ->description('Privileged and operator-visible activity from the configured audit backend.')
-            ->records(function (?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
+            ->records(function (array $filters, ?string $sortColumn, ?string $sortDirection, ?string $search, int $page, int $recordsPerPage): LengthAwarePaginator {
                 $records = $this->activityRecords();
+
+                $records = $this->applyFilters($records, $filters);
 
                 if (filled($search)) {
                     $needle = mb_strtolower(trim((string) $search));
 
                     $records = $records->filter(static function (array $record) use ($needle): bool {
                         return str_contains(mb_strtolower($record['description']), $needle)
-                            || str_contains(mb_strtolower($record['event']), $needle)
-                            || str_contains(mb_strtolower($record['logName']), $needle)
+                            || str_contains(mb_strtolower((string) $record['event']), $needle)
+                            || str_contains(mb_strtolower((string) $record['logName']), $needle)
+                            || str_contains(mb_strtolower((string) $record['actorLabel']), $needle)
+                            || str_contains(mb_strtolower((string) $record['subjectLabel']), $needle)
+                            || str_contains(mb_strtolower((string) $record['contextPreview']), $needle)
                             || str_contains(mb_strtolower($record['loggedAt']), $needle);
                     })->values();
                 }
@@ -109,16 +122,46 @@ final class AuditTrailPage extends OpsPage implements HasTable
                 );
             })
             ->defaultSort('sortLoggedAt', 'desc')
+            ->recordUrl(fn (array $record): string => AuditEntryDetailsPage::getUrl(['entry' => $record['id']], panel: (string) config('ops.panel.id', 'ops')))
             ->searchable()
+            ->filters([
+                SelectFilter::make('event')
+                    ->label('Event')
+                    ->options(fn (): array => $this->eventFilterOptions()),
+                SelectFilter::make('logName')
+                    ->label('Log')
+                    ->options(fn (): array => $this->logNameFilterOptions()),
+                Filter::make('has_context')
+                    ->label('Has context'),
+            ])
             ->paginated([10, 25, 50])
             ->columns([
                 TextColumn::make('description')
                     ->label('Entry')
                     ->searchable()
                     ->wrap(),
-                TextColumn::make('event')
+                TextColumn::make('actorLabel')
+                    ->label('Actor')
                     ->badge()
                     ->color('gray')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('subjectLabel')
+                    ->label('Subject')
+                    ->badge()
+                    ->color('gray')
+                    ->searchable()
+                    ->sortable(),
+                TextColumn::make('event')
+                    ->formatStateUsing(static fn (string $state): string => $state === 'n/a' ? 'n/a' : str($state)->headline()->toString())
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'created' => 'success',
+                        'updated' => 'warning',
+                        'deleted' => 'danger',
+                        'restored' => 'info',
+                        default => 'gray',
+                    })
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('logName')
@@ -127,6 +170,10 @@ final class AuditTrailPage extends OpsPage implements HasTable
                     ->color('gray')
                     ->searchable()
                     ->sortable(),
+                TextColumn::make('contextPreview')
+                    ->label('Context')
+                    ->formatStateUsing(static fn (?string $state): string => $state ?? 'No context')
+                    ->wrap(),
                 TextColumn::make('loggedAt')
                     ->label('Logged at')
                     ->sortable(),
@@ -229,7 +276,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
     }
 
     /**
-     * @return Collection<int, array{description: string, event: string, logName: string, loggedAt: string, sortLoggedAt: string}>
+     * @return Collection<int, array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>, sortLoggedAt: string}>
      */
     private function activityRecords(): Collection
     {
@@ -238,13 +285,78 @@ final class AuditTrailPage extends OpsPage implements HasTable
                 $loggedAt = $item['loggedAt'] ?? 'n/a';
 
                 return [
+                    'id' => $item['id'],
                     'description' => $item['description'],
                     'event' => $item['event'] ?? 'n/a',
                     'logName' => $item['logName'] ?? 'n/a',
+                    'actorLabel' => $item['actorLabel'] ?? 'System',
+                    'subjectLabel' => $item['subjectLabel'] ?? 'Unknown subject',
+                    'contextPreview' => $item['contextPreview'] ?? null,
+                    'contextRows' => $item['contextRows'] ?? [],
+                    'changesRows' => $item['changesRows'] ?? [],
                     'loggedAt' => $loggedAt,
                     'sortLoggedAt' => $loggedAt === 'n/a' ? '' : $loggedAt,
                 ];
             });
+    }
+
+    /**
+     * @param  Collection<int, array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>, sortLoggedAt: string}>  $records
+     * @param  array<string, array<string, mixed>>  $filters
+     * @return Collection<int, array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>, changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>, sortLoggedAt: string}>
+     */
+    private function applyFilters(Collection $records, array $filters): Collection
+    {
+        $event = $filters['event']['value'] ?? null;
+        $logName = $filters['logName']['value'] ?? null;
+
+        if (filled($event)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['event'] === $event)
+                ->values();
+        }
+
+        if (filled($logName)) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['logName'] === $logName)
+                ->values();
+        }
+
+        if ($filters['has_context']['isActive'] ?? false) {
+            $records = $records
+                ->filter(static fn (array $record): bool => $record['contextRows'] !== [] || $record['changesRows'] !== [])
+                ->values();
+        }
+
+        return collect($records->all());
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function eventFilterOptions(): array
+    {
+        return $this->activityRecords()
+            ->pluck('event')
+            ->filter(fn (string $event): bool => $event !== 'n/a')
+            ->unique()
+            ->sort()
+            ->mapWithKeys(static fn (string $event): array => [$event => str($event)->headline()->toString()])
+            ->all();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function logNameFilterOptions(): array
+    {
+        return $this->activityRecords()
+            ->pluck('logName')
+            ->filter(fn (string $logName): bool => $logName !== 'n/a')
+            ->unique()
+            ->sort()
+            ->mapWithKeys(static fn (string $logName): array => [$logName => $logName])
+            ->all();
     }
 
     private function emptyStateHeading(): string

@@ -18,6 +18,7 @@ use YezzMedia\Foundation\Support\PlatformPackageRegistrar;
 use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
 use YezzMedia\Ops\Support\OpsAccessBridge;
+use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
 use YezzMedia\Ops\Support\OpsAuthorizationResolver;
 use YezzMedia\Ops\Support\OpsDiagnosticsCacheManager;
 use YezzMedia\Ops\Support\OpsDiagnosticsSummaryResolver;
@@ -99,6 +100,11 @@ class OpsServiceProvider extends PackageServiceProvider
                 integrations: $this->app->make(OpsIntegrationResolver::class),
                 cache: $this->app->make(OpsRecentActivityCacheManager::class),
                 activitylog: $this->app->make(ActivitylogRecentActivityReader::class),
+            );
+        });
+        $this->app->singleton(OpsAuditEntryDetailsResolver::class, function (): OpsAuditEntryDetailsResolver {
+            return new OpsAuditEntryDetailsResolver(
+                summary: $this->app->make(OpsRecentActivityResolver::class),
             );
         });
         $this->app->singleton(OpsNavigationResolver::class, function (): OpsNavigationResolver {
