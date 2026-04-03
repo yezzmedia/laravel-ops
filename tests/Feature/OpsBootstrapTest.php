@@ -24,6 +24,7 @@ use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionDetailsPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
+use YezzMedia\Ops\Pages\RoleDetailsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\OpsAccessBridge;
 use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
@@ -42,6 +43,7 @@ use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
 use YezzMedia\Ops\Support\OpsPermissionDetailsResolver;
 use YezzMedia\Ops\Support\OpsRecentActivityCacheManager;
 use YezzMedia\Ops\Support\OpsRecentActivityResolver;
+use YezzMedia\Ops\Support\OpsRoleDetailsResolver;
 use YezzMedia\Ops\Support\OpsRuntimePostureResolver;
 use YezzMedia\Ops\Support\OpsSurfaceVisibilityResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
@@ -71,6 +73,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and(app(OpsAuditWriter::class))->toBeInstanceOf(OpsAuditWriter::class)
         ->and(app(OpsAccessBridge::class))->toBeInstanceOf(OpsAccessBridge::class)
         ->and(app(OpsPermissionDetailsResolver::class))->toBeInstanceOf(OpsPermissionDetailsResolver::class)
+        ->and(app(OpsRoleDetailsResolver::class))->toBeInstanceOf(OpsRoleDetailsResolver::class)
         ->and(app(RunSystemDiagnosticsAction::class))->toBeInstanceOf(RunSystemDiagnosticsAction::class)
         ->and(app(RefreshAuditSnapshotAction::class))->toBeInstanceOf(RefreshAuditSnapshotAction::class)
         ->and(app(OpsNavigationResolver::class))->toBeInstanceOf(OpsNavigationResolver::class)
@@ -104,6 +107,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getPages())->toContain(SystemHealthPage::class)
         ->and($panel?->getPages())->toContain(PermissionsPage::class)
         ->and($panel?->getPages())->toContain(PermissionDetailsPage::class)
+        ->and($panel?->getPages())->toContain(RoleDetailsPage::class)
         ->and($panel?->getPages())->toContain(AccessManagementPage::class)
         ->and($panel?->getPages())->toContain(AuditTrailPage::class)
         ->and($panel?->getPages())->toContain(AuditEntryDetailsPage::class)

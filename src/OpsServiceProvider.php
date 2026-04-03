@@ -39,6 +39,7 @@ use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
 use YezzMedia\Ops\Support\OpsPermissionDetailsResolver;
 use YezzMedia\Ops\Support\OpsRecentActivityCacheManager;
 use YezzMedia\Ops\Support\OpsRecentActivityResolver;
+use YezzMedia\Ops\Support\OpsRoleDetailsResolver;
 use YezzMedia\Ops\Support\OpsRuntimePostureResolver;
 use YezzMedia\Ops\Support\OpsSurfaceVisibilityResolver;
 
@@ -148,6 +149,9 @@ class OpsServiceProvider extends PackageServiceProvider
         });
         $this->app->singleton(OpsPermissionDetailsResolver::class, function (): OpsPermissionDetailsResolver {
             return new OpsPermissionDetailsResolver;
+        });
+        $this->app->singleton(OpsRoleDetailsResolver::class, function (): OpsRoleDetailsResolver {
+            return new OpsRoleDetailsResolver;
         });
         $this->app->singleton(OpsRuntimePostureResolver::class, function (): OpsRuntimePostureResolver {
             return new OpsRuntimePostureResolver(

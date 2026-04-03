@@ -27,6 +27,7 @@ use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionDetailsPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
+use YezzMedia\Ops\Pages\RoleDetailsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
@@ -55,6 +56,7 @@ class OpsPanelProvider extends PanelProvider
                 SystemHealthPage::class,
                 DoctorCheckDetailsPage::class,
                 PermissionsPage::class,
+                RoleDetailsPage::class,
                 PermissionDetailsPage::class,
                 AccessManagementPage::class,
                 AuditTrailPage::class,
