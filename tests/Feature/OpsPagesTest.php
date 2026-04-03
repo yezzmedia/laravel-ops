@@ -24,6 +24,7 @@ use YezzMedia\Ops\Pages\DoctorCheckDetailsPage;
 use YezzMedia\Ops\Pages\FeaturesPage;
 use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
+use YezzMedia\Ops\Pages\PermissionDetailsPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
@@ -839,10 +840,14 @@ it('normalizes declared permission rows for the permissions table', function ():
             [
                 'name' => 'ops.audit.view',
                 'package' => 'yezzmedia/laravel-ops',
+                'packageDescription' => 'Shared operations panel package for the Yezz Media Laravel website platform.',
                 'label' => 'View audit surfaces',
+                'description' => 'View audit-facing operational visibility surfaces.',
                 'synced' => true,
                 'roleHints' => ['auditor'],
+                'roleHintsCount' => 1,
                 'assignedRoles' => ['super-admin'],
+                'assignedRoleCount' => 1,
             ],
         ],
         'roles' => [
@@ -853,16 +858,84 @@ it('normalizes declared permission rows for the permissions table', function ():
         ],
     ];
 
+    $heroSummary = $page->permissionsHeroSummary();
     $table = $page->table(Table::make($page));
     /** @var Collection<int, array{name: string, package: string, label: string, synced: bool, roleHints: list<string>, assignedRoles: list<string>, roleHintsLabel: string, assignedRolesLabel: string}> $permissionRecords */
     $permissionRecords = (fn (): Collection => $this->permissionRecords())->call($page);
     $permissionRecord = $permissionRecords->sole();
 
-    expect($table->getHeading())->toBe('Declared permissions')
-        ->and(array_keys($table->getColumns()))->toBe(['name', 'package', 'synced', 'roleHintsLabel', 'assignedRolesLabel'])
+    expect($heroSummary)->toBe([
+        'eyebrow' => 'Access visibility',
+        'heading' => 'Permission inventory',
+        'description' => 'Review declared permissions, sync coverage, and whether the permission store is ready for access operations.',
+        'permissionCount' => 1,
+        'syncedPermissionCount' => 1,
+        'roleCount' => 1,
+        'storeStatus' => 'Ready',
+    ])
+        ->and($table->getHeading())->toBe('Declared permissions')
         ->and($permissionRecords)->toHaveCount(1)
+        ->and($permissionRecord['roleHintsCount'])->toBe(1)
+        ->and($permissionRecord['assignedRoleCount'])->toBe(1)
         ->and($permissionRecord['roleHintsLabel'])->toBe('auditor')
         ->and($permissionRecord['assignedRolesLabel'])->toBe('super-admin');
+});
+
+it('loads the permission details page for one declared permission', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new AccessPlatformPackage);
+
+    $user = TestOpsUser::fixture([
+        'ops.panel.access',
+        'ops.access.view',
+    ]);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PermissionDetailsPage::class);
+    $page->permission = 'ops.audit.view';
+    $page->details = [
+        'summary' => [
+            'name' => 'ops.audit.view',
+            'label' => 'View audit surfaces',
+            'package' => 'yezzmedia/laravel-ops',
+            'packageDescription' => 'Shared operations panel package for the Yezz Media Laravel website platform.',
+            'description' => 'View audit-facing operational visibility surfaces.',
+            'syncedLabel' => 'Synced',
+            'syncedTone' => 'success',
+            'roleHintsCount' => 1,
+            'assignedRoleCount' => 1,
+        ],
+        'roleHints' => ['auditor'],
+        'roleHintsLabel' => 'auditor',
+        'assignedRoles' => ['super-admin'],
+        'assignedRolesLabel' => 'super-admin',
+    ];
+
+    $page->cacheInteractsWithHeaderActions();
+    $headerActions = array_values($page->getCachedHeaderActions());
+    $headerAction = $headerActions[0];
+
+    expect($page->getTitle())->toBe('ops.audit.view')
+        ->and($page->getHeading())->toBe('Permission details')
+        ->and($page->getSubheading())->toBe('View audit surfaces')
+        ->and($headerActions)->toHaveCount(1)
+        ->and($headerAction->getName())->toBe('backToPermissions')
+        ->and($headerAction->getUrl())->toBe(PermissionsPage::getUrl(panel: (string) config('ops.panel.id', 'ops')))
+        ->and($page->details['summary'])->toMatchArray([
+            'name' => 'ops.audit.view',
+            'label' => 'View audit surfaces',
+            'package' => 'yezzmedia/laravel-ops',
+            'packageDescription' => 'Shared operations panel package for the Yezz Media Laravel website platform.',
+            'description' => 'View audit-facing operational visibility surfaces.',
+            'syncedLabel' => 'Synced',
+            'syncedTone' => 'success',
+            'roleHintsCount' => 1,
+            'assignedRoleCount' => 1,
+        ])
+        ->and($page->details['roleHints'])->toBe(['auditor'])
+        ->and($page->details['roleHintsLabel'])->toBe('auditor')
+        ->and($page->details['assignedRoles'])->toBe(['super-admin'])
+        ->and($page->details['assignedRolesLabel'])->toBe('super-admin');
 });
 
 it('normalizes persisted role rows for access management', function (): void {
@@ -937,9 +1010,11 @@ it('loads the access pages when access integration is active and the operator ha
     $permissionsPage = app(PermissionsPage::class);
     $permissionsPage->mount();
 
+    $permissionsHeroSummary = $permissionsPage->permissionsHeroSummary();
     $permissionsTable = $permissionsPage->table(Table::make($permissionsPage));
 
     expect($permissionsPage->overview)->toHaveKeys(['installed', 'available', 'error', 'store', 'permissions', 'roles'])
+        ->and($permissionsHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'permissionCount', 'syncedPermissionCount', 'roleCount', 'storeStatus'])
         ->and($permissionsTable->getHeading())->toBe('Declared permissions');
 
     $accessManagementPage = app(AccessManagementPage::class);

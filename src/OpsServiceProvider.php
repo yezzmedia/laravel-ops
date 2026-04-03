@@ -36,6 +36,7 @@ use YezzMedia\Ops\Support\OpsPackageDetailsResolver;
 use YezzMedia\Ops\Support\OpsPackageOverviewResolver;
 use YezzMedia\Ops\Support\OpsPackageSummaryCacheManager;
 use YezzMedia\Ops\Support\OpsPackageSummaryResolver;
+use YezzMedia\Ops\Support\OpsPermissionDetailsResolver;
 use YezzMedia\Ops\Support\OpsRecentActivityCacheManager;
 use YezzMedia\Ops\Support\OpsRecentActivityResolver;
 use YezzMedia\Ops\Support\OpsRuntimePostureResolver;
@@ -145,6 +146,9 @@ class OpsServiceProvider extends PackageServiceProvider
                 navigation: $this->app->make(OpsNavigationResolver::class),
             );
         });
+        $this->app->singleton(OpsPermissionDetailsResolver::class, function (): OpsPermissionDetailsResolver {
+            return new OpsPermissionDetailsResolver;
+        });
         $this->app->singleton(OpsRuntimePostureResolver::class, function (): OpsRuntimePostureResolver {
             return new OpsRuntimePostureResolver(
                 guards: $this->app->make(OpsGuardResolver::class),
@@ -155,6 +159,7 @@ class OpsServiceProvider extends PackageServiceProvider
             return new OpsAccessBridge(
                 permissions: $this->app->make(PermissionRegistry::class),
                 integrations: $this->app->make(OpsIntegrationResolver::class),
+                packages: $this->app->make(PackageRegistry::class),
             );
         });
         $this->app->singleton(RunSystemDiagnosticsAction::class, function (): RunSystemDiagnosticsAction {

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 use Throwable;
+use YezzMedia\Foundation\Registry\PackageRegistry;
 use YezzMedia\Foundation\Registry\PermissionRegistry;
 
 /**
@@ -28,6 +29,7 @@ final class OpsAccessBridge
     public function __construct(
         private readonly PermissionRegistry $permissions,
         private readonly OpsIntegrationResolver $integrations,
+        private readonly PackageRegistry $packages,
     ) {}
 
     /**
@@ -36,7 +38,7 @@ final class OpsAccessBridge
      *     available: bool,
      *     error: ?string,
      *     store: array{configPublished: bool, migrationsPublished: bool, pendingMigrations: bool, ready: bool},
-     *     permissions: list<array{name: string, package: string, label: string, synced: bool, roleHints: list<string>, assignedRoles: list<string>}>,
+     *     permissions: list<array{name: string, package: string, packageDescription: ?string, label: string, description: ?string, synced: bool, roleHints: list<string>, roleHintsCount: int, assignedRoles: list<string>, assignedRoleCount: int}>,
      *     roles: list<array{name: string, permissionNames: list<string>}>
      * }
      */
@@ -88,15 +90,21 @@ final class OpsAccessBridge
                         static fn (array $permissionNames): bool => in_array($permission->name, $permissionNames, true),
                     ));
 
+                    $package = $this->packages->find($permission->package);
+
                     sort($assignedRoles);
 
                     return [
                         'name' => $permission->name,
                         'package' => $permission->package,
+                        'packageDescription' => $package?->description,
                         'label' => $permission->label,
+                        'description' => $permission->description,
                         'synced' => in_array($permission->name, $persistedPermissionNames, true),
                         'roleHints' => $this->normalizedNames($permission->defaultRoleHints ?? []),
+                        'roleHintsCount' => count($this->normalizedNames($permission->defaultRoleHints ?? [])),
                         'assignedRoles' => $assignedRoles,
+                        'assignedRoleCount' => count($assignedRoles),
                     ];
                 })
                 ->values()
