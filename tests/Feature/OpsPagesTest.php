@@ -26,6 +26,7 @@ use YezzMedia\Ops\Pages\PackageDetailsPage;
 use YezzMedia\Ops\Pages\PackagesPage;
 use YezzMedia\Ops\Pages\PermissionDetailsPage;
 use YezzMedia\Ops\Pages\PermissionsPage;
+use YezzMedia\Ops\Pages\RoleDetailsPage;
 use YezzMedia\Ops\Pages\SystemHealthPage;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
 use YezzMedia\Ops\Support\OpsAuditEntryDetailsResolver;
@@ -969,15 +970,63 @@ it('normalizes persisted role rows for access management', function (): void {
         ],
     ];
 
+    $heroSummary = $page->accessManagementHeroSummary();
     $table = $page->table(Table::make($page));
-    /** @var Collection<int, array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>, permissionNamesLabel: string}> $roleRecords */
+    /** @var Collection<int, array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>, permissionNamesLabel: string, isSuperAdminRole: bool, hasAssignments: bool, hasPermissions: bool}> $roleRecords */
     $roleRecords = (fn (): Collection => $this->roleRecords())->call($page);
     $roleRecord = $roleRecords->sole();
 
-    expect($table->getHeading())->toBe('Persisted roles')
-        ->and(array_keys($table->getColumns()))->toBe(['name', 'permissionCount', 'assignmentCount', 'permissionNamesLabel'])
+    expect($heroSummary)->toBe([
+        'eyebrow' => 'Access operations',
+        'heading' => 'Role management',
+        'description' => 'Review persisted roles, operator coverage, and the current super-admin posture before changing assignments.',
+        'roleCount' => 1,
+        'assignmentCount' => 2,
+        'superAdminRole' => 'super-admin',
+        'status' => 'Protected',
+    ])
+        ->and($table->getHeading())->toBe('Persisted roles')
+        ->and(array_keys($table->getFilters()))->toBe(['super_admin', 'has_assignments', 'has_permissions'])
         ->and($roleRecords)->toHaveCount(1)
+        ->and($roleRecord['isSuperAdminRole'])->toBeTrue()
+        ->and($roleRecord['hasAssignments'])->toBeTrue()
+        ->and($roleRecord['hasPermissions'])->toBeTrue()
         ->and($roleRecord['permissionNamesLabel'])->toBe('ops.audit.view, ops.access.manage');
+});
+
+it('loads the role details page for one persisted role', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new AccessPlatformPackage);
+
+    $user = TestOpsUser::fixture([
+        'ops.panel.access',
+        'ops.access.manage',
+    ]);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(RoleDetailsPage::class);
+    $page->role = 'super-admin';
+    $page->details = [
+        'summary' => [
+            'name' => 'super-admin',
+            'permissionCount' => 2,
+            'assignmentCount' => 3,
+            'isSuperAdminRole' => true,
+            'superAdminStatus' => 'Super-admin',
+        ],
+        'permissionNames' => ['ops.audit.view', 'ops.access.manage'],
+        'permissionNamesLabel' => 'ops.audit.view, ops.access.manage',
+    ];
+
+    $page->cacheInteractsWithHeaderActions();
+    $headerActions = array_values($page->getCachedHeaderActions());
+
+    expect($page->getTitle())->toBe('super-admin')
+        ->and($page->getHeading())->toBe('Role details')
+        ->and($page->getSubheading())->toBe('Super-admin role')
+        ->and($headerActions)->toHaveCount(1)
+        ->and($headerActions[0]->getName())->toBe('backToAccessManagement')
+        ->and($page->details['permissionNamesLabel'])->toBe('ops.audit.view, ops.access.manage');
 });
 
 it('forbids access pages in reduced mode', function (): void {
@@ -1020,8 +1069,10 @@ it('loads the access pages when access integration is active and the operator ha
     $accessManagementPage = app(AccessManagementPage::class);
     $accessManagementPage->mount();
 
+    $accessManagementHeroSummary = $accessManagementPage->accessManagementHeroSummary();
     $accessManagementTable = $accessManagementPage->table(Table::make($accessManagementPage));
 
     expect($accessManagementPage->overview)->toHaveKeys(['installed', 'available', 'error', 'superAdmin', 'roles'])
+        ->and($accessManagementHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'roleCount', 'assignmentCount', 'superAdminRole', 'status'])
         ->and($accessManagementTable->getHeading())->toBe('Persisted roles');
 });
