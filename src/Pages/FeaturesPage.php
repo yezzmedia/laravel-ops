@@ -132,22 +132,43 @@ final class FeaturesPage extends OpsPage implements HasTable
             ->emptyStateHeading('No platform features are currently registered.');
     }
 
-    public function featureHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Ops visibility',
             'heading' => 'Platform feature inventory',
             'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
-            'featureCount' => $this->featureCount(),
-            'featurePackageCount' => $this->featurePackageCount(),
-            'featuresWithEntryPointsCount' => $this->featuresWithEntryPointsCount(),
+            'metrics' => [
+                [
+                    'label' => 'Registered features',
+                    'value' => $this->featureCount(),
+                    'helperText' => 'Approved capabilities currently visible through the platform registries.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Packages contributing',
+                    'value' => $this->featurePackageCount(),
+                    'helperText' => 'Packages that currently register at least one platform feature.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'With entry points',
+                    'value' => $this->featuresWithEntryPointsCount(),
+                    'helperText' => 'Features whose owning package already exposes related operator entry points.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function featuresHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->featureHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Platform feature inventory')
                     ->description('Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.')

@@ -195,22 +195,43 @@ final class PackagesPage extends OpsPage implements HasTable
         return collect($records->all());
     }
 
-    public function packagesHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Ops inventory',
             'heading' => 'Platform package inventory',
             'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
-            'packageCount' => $this->packageCount(),
-            'enabledPackageCount' => $this->enabledPackageCount(),
-            'entryPointPackageCount' => $this->entryPointPackageCount(),
+            'metrics' => [
+                [
+                    'label' => 'Registered packages',
+                    'value' => $this->packageCount(),
+                    'helperText' => 'Packages currently visible through the approved foundation package registry.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Enabled packages',
+                    'value' => $this->enabledPackageCount(),
+                    'helperText' => 'Packages currently participating in capability aggregation.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Entry-point packages',
+                    'value' => $this->entryPointPackageCount(),
+                    'helperText' => 'Packages that already expose operator-facing entry points.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function packagesHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->packagesHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Platform package inventory')
                     ->description('Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.')

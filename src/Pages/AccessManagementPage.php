@@ -12,8 +12,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
@@ -77,7 +75,7 @@ final class AccessManagementPage extends OpsPage implements HasTable
         $this->refreshOverview();
     }
 
-    public function accessManagementHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Access operations',
@@ -87,51 +85,65 @@ final class AccessManagementPage extends OpsPage implements HasTable
             'assignmentCount' => collect($this->overview['roles'])->sum('assignmentCount'),
             'superAdminRole' => $this->overview['superAdmin']['roleName'] ?? 'Disabled',
             'status' => $this->status(),
+            'metrics' => [
+                [
+                    'label' => 'Persisted roles',
+                    'value' => count($this->overview['roles']),
+                    'helperText' => 'Roles currently stored in the access runtime.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Assigned operators',
+                    'value' => collect($this->overview['roles'])->sum('assignmentCount'),
+                    'helperText' => 'Total persisted role assignments across operators.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Super-admin role',
+                    'value' => $this->overview['superAdmin']['roleName'] ?? 'Disabled',
+                    'helperText' => 'Current elevated-role posture configured for access management.',
+                    'display' => 'badge',
+                    'tone' => $this->overview['superAdmin']['enabled'] ? 'success' : 'gray',
+                ],
+                [
+                    'label' => 'Management status',
+                    'value' => $this->status(),
+                    'helperText' => 'Current runtime state for access management workflows.',
+                    'display' => 'badge',
+                    'tone' => $this->statusTone($this->status()),
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function accessManagementHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->accessManagementHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Role management')
                     ->description('Review persisted roles, operator coverage, and the current super-admin posture before changing assignments.')
                     ->icon(Heroicon::OutlinedUsers)
-                    ->iconColor('primary')
-                    ->afterHeader([
-                        TextEntry::make('eyebrow')
-                            ->hiddenLabel()
-                            ->badge()
-                            ->icon(Heroicon::OutlinedSparkles)
-                            ->color('primary'),
-                    ])
                     ->schema([
                         TextEntry::make('roleCount')
                             ->label('Persisted roles')
                             ->numeric()
-                            ->icon(Heroicon::OutlinedUsers)
-                            ->iconColor('primary')
-                            ->size(TextSize::Large)
-                            ->weight(FontWeight::Bold)
-                            ->helperText('Roles currently stored in the access runtime.'),
+                            ->badge(),
                         TextEntry::make('assignmentCount')
                             ->label('Assigned operators')
                             ->numeric()
-                            ->icon(Heroicon::OutlinedUserGroup)
-                            ->iconColor('primary')
-                            ->size(TextSize::Large)
-                            ->weight(FontWeight::Bold)
-                            ->helperText('Total persisted role assignments across operators.'),
+                            ->badge(),
                         TextEntry::make('superAdminRole')
                             ->label('Super-admin role')
                             ->badge()
-                            ->helperText('Current elevated-role posture configured for access management.'),
+                            ->color(fn (string $state): string => $state === 'Disabled' ? 'gray' : 'success'),
                         TextEntry::make('status')
                             ->label('Management status')
                             ->badge()
-                            ->color(fn (string $state): string => $this->statusTone($state))
-                            ->helperText('Current runtime state for access management workflows.'),
+                            ->color(fn (string $state): string => $this->statusTone($state)),
                     ])
                     ->columns(4),
             ]);
@@ -243,7 +255,7 @@ final class AccessManagementPage extends OpsPage implements HasTable
     public function syncSuggestedRoles(): void
     {
         try {
-            $message = app(OpsAccessBridge::class)->syncSuggestedRoles();
+            $message = app(OpsAccessBridge::class)->syncSuggestedRoles($this->actor());
             $this->refreshOverview();
 
             Notification::make()
@@ -328,13 +340,6 @@ final class AccessManagementPage extends OpsPage implements HasTable
                     ->sortable(),
             ])
             ->emptyStateHeading('No persisted roles are currently available for access management.');
-    }
-
-    public function getWidgetData(): array
-    {
-        return [
-            'overview' => $this->overview,
-        ];
     }
 
     private function refreshOverview(): void

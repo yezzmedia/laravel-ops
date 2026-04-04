@@ -15,6 +15,14 @@ abstract class OpsPage extends Page
 {
     protected static string $opsSurface;
 
+    /**
+     * @return array{eyebrow: string, heading: string, description: ?string, metrics: array<int, array{label: string, value: mixed, helperText?: ?string, display?: string, tone?: ?string}>, actions: array<int, array{label: string, url: string, tone?: ?string}>}|array{}
+     */
+    public function heroData(): array
+    {
+        return [];
+    }
+
     public static function canAccess(): bool
     {
         return app(OpsAuthorizationResolver::class)->canAccessSurface(static::$opsSurface);

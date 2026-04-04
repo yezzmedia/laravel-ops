@@ -159,29 +159,50 @@ final class SystemHealthPage extends OpsPage implements HasTable
             ->emptyStateHeading('No doctor checks are currently available.');
     }
 
-    public function diagnosticsHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Ops diagnostics',
             'heading' => 'System health posture',
             'description' => 'Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.',
-            'status' => str($this->summary['status'])->headline()->toString(),
-            'statusTone' => $this->diagnosticsStatusTone(),
-            'failingCount' => $this->summary['failingCount'],
-            'warningCount' => $this->summary['warningCount'],
-            'passedCount' => $this->summary['passedCount'],
-            'skippedCount' => $this->summary['skippedCount'],
-            'completedAt' => $this->summary['completedAt'] !== '' ? $this->summary['completedAt'] : 'n/a',
-            'accessMode' => str($this->summary['accessMode'])->headline()->toString(),
-            'healthInstalled' => $this->summary['healthInstalled'] ? 'Installed' : 'Unavailable',
-            'auditInstalled' => $this->summary['auditInstalled'] ? 'Installed' : 'Unavailable',
+            'metrics' => [
+                [
+                    'label' => 'Status',
+                    'value' => str($this->summary['status'])->headline()->toString(),
+                    'helperText' => 'Current diagnostics posture.',
+                    'display' => 'badge',
+                    'tone' => $this->diagnosticsStatusTone(),
+                ],
+                [
+                    'label' => 'Failing checks',
+                    'value' => $this->summary['failingCount'],
+                    'helperText' => 'Blocking or degraded checks.',
+                    'display' => 'numeric',
+                    'tone' => 'danger',
+                ],
+                [
+                    'label' => 'Warnings',
+                    'value' => $this->summary['warningCount'],
+                    'helperText' => 'Checks surfaced as warnings.',
+                    'display' => 'numeric',
+                    'tone' => 'warning',
+                ],
+                [
+                    'label' => 'Passed checks',
+                    'value' => $this->summary['passedCount'],
+                    'helperText' => 'Checks that currently pass.',
+                    'display' => 'numeric',
+                    'tone' => 'success',
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function diagnosticsHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->diagnosticsHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('System health posture')
                     ->description('Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.')
@@ -196,7 +217,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
                         TextEntry::make('status')
                             ->hiddenLabel()
                             ->badge()
-                            ->color(fn (string $state): string => $this->diagnosticsHeroSummary()['statusTone']),
+                            ->color(fn (string $state): string => $this->heroData()['statusTone']),
                     ])
                     ->schema([
                         TextEntry::make('failingCount')
@@ -237,7 +258,7 @@ final class SystemHealthPage extends OpsPage implements HasTable
     public function diagnosticsDetailInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->diagnosticsHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Diagnostics context')
                     ->description('Additional operational context for the current diagnostics snapshot and shared integrations.')

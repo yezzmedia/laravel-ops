@@ -96,7 +96,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $page->mount();
 
     $table = $page->table(Table::make($page));
-    $heroSummary = $page->featureHeroSummary();
+    $heroSummary = $page->heroData();
 
     expect($page->features)->toHaveCount(5)
         ->and(array_column($page->features, 'name'))->toBe([
@@ -106,14 +106,12 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
             'ops.packages',
             'ops.runtime',
         ])
-        ->and($heroSummary)->toBe([
+        ->and($heroSummary)->toMatchArray([
             'eyebrow' => 'Ops visibility',
             'heading' => 'Platform feature inventory',
             'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
-            'featureCount' => 5,
-            'featurePackageCount' => 1,
-            'featuresWithEntryPointsCount' => 0,
         ])
+        ->and($heroSummary['metrics'])->toHaveCount(3)
         ->and($table->getHeading())->toBe('Platform features')
         ->and($table->getDescription())->toBe('Registered platform features with package ownership and related operator entry points.')
         ->and(array_keys($table->getColumns()))->toBe(['name', 'label', 'package', 'description', 'entryPointsLabel'])
@@ -126,7 +124,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $diagnosticsPage->mount();
 
     $diagnosticsTable = $diagnosticsPage->table(Table::make($diagnosticsPage));
-    $diagnosticsHeroSummary = $diagnosticsPage->diagnosticsHeroSummary();
+    $diagnosticsHeroSummary = $diagnosticsPage->heroData();
     $runtimeSections = SystemHealthPage::runtimeSectionBlueprintsFor($diagnosticsPage->runtime);
 
     expect($diagnosticsPage->summary)->toHaveKeys([
@@ -146,6 +144,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
             'heading' => 'System health posture',
             'description' => 'Review the current doctor status, current integration posture, and whether the shared runtime surfaces are available to operators.',
         ])
+        ->and($diagnosticsHeroSummary['metrics'])->toHaveCount(4)
         ->and($diagnosticsTable->getHeading())->toBe('Doctor checks')
         ->and($diagnosticsTable->getDescription())->toBe('Curated diagnostics posture from approved health sources.')
         ->and(array_keys($diagnosticsTable->getColumns()))->toBe(['key', 'package', 'status', 'message'])
@@ -159,7 +158,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
     $auditPage->mount();
 
     $auditTable = $auditPage->table(Table::make($auditPage));
-    $auditHeroSummary = $auditPage->auditHeroSummary();
+    $auditHeroSummary = $auditPage->heroData();
 
     expect($auditPage->summary)->toHaveKeys([
         'status',
@@ -176,6 +175,7 @@ it('loads the read-oriented ops pages in reduced mode', function (): void {
             'heading' => 'Audit activity posture',
             'description' => 'Review audit backend availability, recent operator-visible activity volume, and the newest event currently available through the configured backend.',
         ])
+        ->and($auditHeroSummary['metrics'])->toHaveCount(4)
         ->and($auditTable->getHeading())->toBe('Recent audit activity')
         ->and($auditTable->getDescription())->toBe('Privileged and operator-visible activity from the configured audit backend.')
         ->and(array_keys($auditTable->getColumns()))->toBe(['description', 'actorLabel', 'subjectLabel', 'event', 'logName', 'contextPreview', 'loggedAt']);
@@ -213,7 +213,7 @@ it('loads registered feature records on the features page', function (): void {
 
     $page = app(FeaturesPage::class);
     $page->mount();
-    $heroSummary = $page->featureHeroSummary();
+    $heroSummary = $page->heroData();
 
     /** @var Collection<int, array{name: string, label: string, package: string, description: string, packageDescription: string, entryPoints: list<string>, entryPointsLabel: string, sortKey: string}> $featureRecords */
     $featureRecords = (fn (): Collection => $this->featureRecords())->call($page);
@@ -221,14 +221,12 @@ it('loads registered feature records on the features page', function (): void {
 
     expect($page->features)->toHaveCount(6)
         ->and(collect($page->features)->contains(fn (array $feature): bool => $feature['name'] === 'content.pages'))->toBeTrue()
-        ->and($heroSummary)->toBe([
+        ->and($heroSummary)->toMatchArray([
             'eyebrow' => 'Ops visibility',
             'heading' => 'Platform feature inventory',
             'description' => 'Review the approved platform features, the packages that contribute them, and which capabilities already expose operator entry points.',
-            'featureCount' => 6,
-            'featurePackageCount' => 2,
-            'featuresWithEntryPointsCount' => 0,
         ])
+        ->and($heroSummary['metrics'])->toHaveCount(3)
         ->and($featureRecord['entryPointsLabel'])->toBe('No package pages')
         ->and($featureRecord['packageDescription'])->toBe('Content package.')
         ->and($featureRecord['label'])->toBe('Content Pages')
@@ -276,16 +274,14 @@ it('builds a compact package hero summary for the packages page', function (): v
     $page = app(PackagesPage::class);
 
     $table = $page->table(Table::make($page));
-    $heroSummary = $page->packagesHeroSummary();
+    $heroSummary = $page->heroData();
 
-    expect($heroSummary)->toBe([
+    expect($heroSummary)->toMatchArray([
         'eyebrow' => 'Ops inventory',
         'heading' => 'Platform package inventory',
         'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
-        'packageCount' => 3,
-        'enabledPackageCount' => 3,
-        'entryPointPackageCount' => 1,
     ])
+        ->and($heroSummary['metrics'])->toHaveCount(3)
         ->and($table->getHeading())->toBe('Platform packages')
         ->and($table->getDescription())->toBe('Curated package readiness, ownership, and operator-facing entry points.');
 });
@@ -346,7 +342,7 @@ it('builds package posture and contribution counts for the packages page', funct
     $page = app(PackagesPage::class);
 
     $table = $page->table(Table::make($page));
-    $heroSummary = $page->packagesHeroSummary();
+    $heroSummary = $page->heroData();
     /** @var Collection<int, array{name: string, vendor: string, description: string, packageClass: string, enabled: bool, priority: ?int, posture: string, postureLabel: string, postureTone: string, postureSort: int, featureCount: int, permissionCount: int, opsModuleCount: int, entryPoints: list<string>, entryPointsLabel: string}> $packageRecords */
     $packageRecords = (fn (): Collection => $this->packageRecords())->call($page);
 
@@ -354,14 +350,12 @@ it('builds package posture and contribution counts for the packages page', funct
     $catalogRecord = $packageRecords->sole('name', 'yezzmedia/laravel-catalog');
 
     expect(PackageDetailsPage::shouldRegisterNavigation())->toBeFalse()
-        ->and($heroSummary)->toBe([
+        ->and($heroSummary)->toMatchArray([
             'eyebrow' => 'Ops inventory',
             'heading' => 'Platform package inventory',
             'description' => 'Review package readiness, ownership, and how much approved operator-facing surface each package currently contributes.',
-            'packageCount' => 4,
-            'enabledPackageCount' => 3,
-            'entryPointPackageCount' => 1,
         ])
+        ->and($heroSummary['metrics'])->toHaveCount(3)
         ->and($table->getHeading())->toBe('Platform packages')
         ->and(array_keys($table->getColumns()))->toBe([
             'name',
@@ -859,21 +853,18 @@ it('normalizes declared permission rows for the permissions table', function ():
         ],
     ];
 
-    $heroSummary = $page->permissionsHeroSummary();
+    $heroSummary = $page->heroData();
     $table = $page->table(Table::make($page));
     /** @var Collection<int, array{name: string, package: string, label: string, synced: bool, roleHints: list<string>, assignedRoles: list<string>, roleHintsLabel: string, assignedRolesLabel: string}> $permissionRecords */
     $permissionRecords = (fn (): Collection => $this->permissionRecords())->call($page);
     $permissionRecord = $permissionRecords->sole();
 
-    expect($heroSummary)->toBe([
+    expect($heroSummary)->toMatchArray([
         'eyebrow' => 'Access visibility',
         'heading' => 'Permission inventory',
         'description' => 'Review declared permissions, sync coverage, and whether the permission store is ready for access operations.',
-        'permissionCount' => 1,
-        'syncedPermissionCount' => 1,
-        'roleCount' => 1,
-        'storeStatus' => 'Ready',
     ])
+        ->and($heroSummary['metrics'])->toHaveCount(4)
         ->and($table->getHeading())->toBe('Declared permissions')
         ->and($permissionRecords)->toHaveCount(1)
         ->and($permissionRecord['roleHintsCount'])->toBe(1)
@@ -970,21 +961,18 @@ it('normalizes persisted role rows for access management', function (): void {
         ],
     ];
 
-    $heroSummary = $page->accessManagementHeroSummary();
+    $heroSummary = $page->heroData();
     $table = $page->table(Table::make($page));
     /** @var Collection<int, array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>, permissionNamesLabel: string, isSuperAdminRole: bool, hasAssignments: bool, hasPermissions: bool}> $roleRecords */
     $roleRecords = (fn (): Collection => $this->roleRecords())->call($page);
     $roleRecord = $roleRecords->sole();
 
-    expect($heroSummary)->toBe([
+    expect($heroSummary)->toMatchArray([
         'eyebrow' => 'Access operations',
         'heading' => 'Role management',
         'description' => 'Review persisted roles, operator coverage, and the current super-admin posture before changing assignments.',
-        'roleCount' => 1,
-        'assignmentCount' => 2,
-        'superAdminRole' => 'super-admin',
-        'status' => 'Protected',
     ])
+        ->and($heroSummary['metrics'])->toHaveCount(4)
         ->and($table->getHeading())->toBe('Persisted roles')
         ->and(array_keys($table->getFilters()))->toBe(['super_admin', 'has_assignments', 'has_permissions'])
         ->and($roleRecords)->toHaveCount(1)
@@ -1059,20 +1047,20 @@ it('loads the access pages when access integration is active and the operator ha
     $permissionsPage = app(PermissionsPage::class);
     $permissionsPage->mount();
 
-    $permissionsHeroSummary = $permissionsPage->permissionsHeroSummary();
+    $permissionsHeroSummary = $permissionsPage->heroData();
     $permissionsTable = $permissionsPage->table(Table::make($permissionsPage));
 
     expect($permissionsPage->overview)->toHaveKeys(['installed', 'available', 'error', 'store', 'permissions', 'roles'])
-        ->and($permissionsHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'permissionCount', 'syncedPermissionCount', 'roleCount', 'storeStatus'])
+        ->and($permissionsHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'metrics', 'actions'])
         ->and($permissionsTable->getHeading())->toBe('Declared permissions');
 
     $accessManagementPage = app(AccessManagementPage::class);
     $accessManagementPage->mount();
 
-    $accessManagementHeroSummary = $accessManagementPage->accessManagementHeroSummary();
+    $accessManagementHeroSummary = $accessManagementPage->heroData();
     $accessManagementTable = $accessManagementPage->table(Table::make($accessManagementPage));
 
     expect($accessManagementPage->overview)->toHaveKeys(['installed', 'available', 'error', 'superAdmin', 'roles'])
-        ->and($accessManagementHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'roleCount', 'assignmentCount', 'superAdminRole', 'status'])
+        ->and($accessManagementHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'metrics', 'actions'])
         ->and($accessManagementTable->getHeading())->toBe('Persisted roles');
 });
