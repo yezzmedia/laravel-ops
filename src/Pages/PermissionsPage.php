@@ -10,8 +10,6 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Support\Enums\FontWeight;
-use Filament\Support\Enums\TextSize;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -76,65 +74,76 @@ final class PermissionsPage extends OpsPage implements HasTable
         $this->refreshOverview();
     }
 
-    public function permissionsHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Access visibility',
             'heading' => 'Permission inventory',
             'description' => 'Review declared permissions, sync coverage, and whether the permission store is ready for access operations.',
-            'permissionCount' => count($this->overview['permissions']),
-            'syncedPermissionCount' => collect($this->overview['permissions'])->where('synced', true)->count(),
-            'roleCount' => count($this->overview['roles']),
-            'storeStatus' => $this->permissionStoreStatus(),
+            'metrics' => [
+                [
+                    'label' => 'Declared permissions',
+                    'value' => count($this->overview['permissions']),
+                    'helperText' => 'Permissions currently visible through the foundation registry.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Synced permissions',
+                    'value' => collect($this->overview['permissions'])->where('synced', true)->count(),
+                    'helperText' => 'Permissions already present in the persistent authorization store.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Registered roles',
+                    'value' => count($this->overview['roles']),
+                    'helperText' => 'Persisted roles linked to the declared permission set.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Store status',
+                    'value' => $this->permissionStoreStatus(),
+                    'helperText' => 'Current readiness posture of the permission store.',
+                    'display' => 'badge',
+                    'tone' => $this->permissionsHeroStatusTone($this->permissionStoreStatus()),
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function permissionsHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->permissionsHeroSummary())
+            ->state([
+                'declaredPermissions' => count($this->overview['permissions']),
+                'syncedPermissions' => collect($this->overview['permissions'])->where('synced', true)->count(),
+                'registeredRoles' => count($this->overview['roles']),
+                'storeStatus' => $this->permissionStoreStatus(),
+            ])
             ->components([
                 Section::make('Permission inventory')
                     ->description('Review declared permissions, sync coverage, and whether the permission store is ready for access operations.')
                     ->icon(Heroicon::OutlinedKey)
-                    ->iconColor('primary')
-                    ->afterHeader([
-                        TextEntry::make('eyebrow')
-                            ->hiddenLabel()
-                            ->badge()
-                            ->icon(Heroicon::OutlinedSparkles)
-                            ->color('primary'),
-                    ])
                     ->schema([
-                        TextEntry::make('permissionCount')
+                        TextEntry::make('declaredPermissions')
                             ->label('Declared permissions')
                             ->numeric()
-                            ->icon(Heroicon::OutlinedKey)
-                            ->iconColor('primary')
-                            ->size(TextSize::Large)
-                            ->weight(FontWeight::Bold)
-                            ->helperText('Permissions currently visible through the foundation registry.'),
-                        TextEntry::make('syncedPermissionCount')
+                            ->badge(),
+                        TextEntry::make('syncedPermissions')
                             ->label('Synced permissions')
                             ->numeric()
-                            ->icon(Heroicon::OutlinedCheckCircle)
-                            ->iconColor('primary')
-                            ->size(TextSize::Large)
-                            ->weight(FontWeight::Bold)
-                            ->helperText('Permissions already present in the persistent authorization store.'),
-                        TextEntry::make('roleCount')
+                            ->badge(),
+                        TextEntry::make('registeredRoles')
                             ->label('Registered roles')
                             ->numeric()
-                            ->icon(Heroicon::OutlinedUsers)
-                            ->iconColor('primary')
-                            ->size(TextSize::Large)
-                            ->weight(FontWeight::Bold)
-                            ->helperText('Persisted roles linked to the declared permission set.'),
+                            ->badge(),
                         TextEntry::make('storeStatus')
                             ->label('Store status')
                             ->badge()
-                            ->color(fn (string $state): string => $this->permissionsHeroStatusTone($state))
-                            ->helperText('Current readiness posture of the permission store.'),
+                            ->color(fn (string $state): string => $this->permissionsHeroStatusTone($state)),
                     ])
                     ->columns(4),
             ]);
@@ -256,13 +265,6 @@ final class PermissionsPage extends OpsPage implements HasTable
     {
         return [
             RoleRelationshipsWidget::class,
-        ];
-    }
-
-    public function getWidgetData(): array
-    {
-        return [
-            'overview' => $this->overview,
         ];
     }
 

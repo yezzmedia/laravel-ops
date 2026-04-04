@@ -220,28 +220,50 @@ final class AuditTrailPage extends OpsPage implements HasTable
         ];
     }
 
-    public function auditHeroSummary(): array
+    public function heroData(): array
     {
         return [
             'eyebrow' => 'Ops audit',
             'heading' => 'Audit activity posture',
             'description' => 'Review audit backend availability, recent operator-visible activity volume, and the newest event currently available through the configured backend.',
-            'status' => str($this->summary['status'])->headline()->toString(),
-            'statusTone' => $this->auditStatusTone(),
-            'backend' => $this->summary['backend'] ?? 'Unavailable',
-            'activityCount' => $this->summary['activityCount'],
-            'latestEntryState' => $this->summary['latestDescription'] === null ? 'Unavailable' : 'Available',
-            'latestDescription' => $this->summary['latestDescription'] ?? 'No recent audit entry available.',
-            'latestAt' => $this->summary['latestAt'] ?? 'n/a',
-            'source' => $this->summary['source'] ?? 'fresh read',
-            'cachedAt' => $this->summary['cachedAt'] ?? 'n/a',
+            'metrics' => [
+                [
+                    'label' => 'Status',
+                    'value' => str($this->summary['status'])->headline()->toString(),
+                    'helperText' => 'Current audit backend posture.',
+                    'display' => 'badge',
+                    'tone' => $this->auditStatusTone(),
+                ],
+                [
+                    'label' => 'Backend',
+                    'value' => $this->summary['backend'] ?? 'Unavailable',
+                    'helperText' => 'Configured audit backend.',
+                    'display' => 'badge',
+                    'tone' => 'gray',
+                ],
+                [
+                    'label' => 'Recent entries',
+                    'value' => $this->summary['activityCount'],
+                    'helperText' => 'Operator-visible audit rows currently available.',
+                    'display' => 'numeric',
+                    'tone' => 'primary',
+                ],
+                [
+                    'label' => 'Latest entry',
+                    'value' => $this->summary['latestDescription'] === null ? 'Unavailable' : 'Available',
+                    'helperText' => $this->summary['latestDescription'] ?? 'No recent audit entry available.',
+                    'display' => 'badge',
+                    'tone' => 'primary',
+                ],
+            ],
+            'actions' => [],
         ];
     }
 
     public function auditHeroInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->auditHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Audit activity posture')
                     ->description('Review audit backend availability, recent operator-visible activity volume, and the newest event currently available through the configured backend.')
@@ -256,7 +278,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
                         TextEntry::make('status')
                             ->hiddenLabel()
                             ->badge()
-                            ->color(fn (): string => $this->auditHeroSummary()['statusTone']),
+                            ->color(fn (): string => $this->heroData()['statusTone']),
                     ])
                     ->schema([
                         TextEntry::make('activityCount')
@@ -293,7 +315,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
     public function auditDetailInfolist(Schema $schema): Schema
     {
         return $schema
-            ->state($this->auditHeroSummary())
+            ->state($this->heroData())
             ->components([
                 Section::make('Audit context')
                     ->description('Additional context about the current backend snapshot and the newest available activity item.')
@@ -305,7 +327,7 @@ final class AuditTrailPage extends OpsPage implements HasTable
                         TextEntry::make('status')
                             ->label('Backend posture')
                             ->badge()
-                            ->color(fn (): string => $this->auditHeroSummary()['statusTone'])
+                            ->color(fn (): string => $this->heroData()['statusTone'])
                             ->helperText('Current availability posture of the configured audit backend.'),
                         TextEntry::make('latestDescription')
                             ->label('Latest entry')
