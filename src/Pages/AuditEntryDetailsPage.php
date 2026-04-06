@@ -38,7 +38,7 @@ final class AuditEntryDetailsPage extends OpsPage
      * @var array{
      *     summary: array{id: string, description: string, event: string, logName: string, loggedAt: string, actorLabel: string, subjectLabel: string, contextPreview: ?string, contextJson: string, changesJson: string, backend: string, statusLabel: string, statusTone: string, sourceLabel: string, cachedAt: ?string},
      *     contextRows: list<array{key: string, valuePreview: string, valueRaw: string}>,
-     *     changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}>
+     *     changesRows: list<array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string, removedSegment: ?string, addedSegment: ?string}>
      * }
      */
     public array $details = [
@@ -66,6 +66,10 @@ final class AuditEntryDetailsPage extends OpsPage
     public function mount(): void
     {
         $this->details = app(OpsAuditEntryDetailsResolver::class)->resolve($this->entry);
+        $this->details['changesRows'] = array_map(
+            static fn (array $row): array => self::decorateChangeRow($row),
+            $this->details['changesRows'],
+        );
     }
 
     public function getTitle(): string
@@ -178,19 +182,93 @@ final class AuditEntryDetailsPage extends OpsPage
                             ->table([
                                 TableColumn::make('Field'),
                                 TableColumn::make('Old value'),
+                                TableColumn::make('Removed'),
+                                TableColumn::make('Added'),
                                 TableColumn::make('New value'),
                             ])
                             ->schema([
                                 TextEntry::make('field'),
                                 TextEntry::make('oldPreview')
                                     ->label('Old value')
-                                    ->tooltip(fn (Get $get): ?string => $get('oldRaw')),
+                                    ->tooltip(fn (Get $get): ?string => $get('oldRaw'))
+                                    ->copyable(),
+                                TextEntry::make('removedSegment')
+                                    ->label('Removed')
+                                    ->badge()
+                                    ->color('danger')
+                                    ->placeholder('No removal'),
+                                TextEntry::make('addedSegment')
+                                    ->label('Added')
+                                    ->badge()
+                                    ->color('success')
+                                    ->placeholder('No addition'),
                                 TextEntry::make('newPreview')
                                     ->label('New value')
-                                    ->tooltip(fn (Get $get): ?string => $get('newRaw')),
+                                    ->tooltip(fn (Get $get): ?string => $get('newRaw'))
+                                    ->copyable(),
                             ])
                             ->placeholder('This audit entry did not expose tracked attribute changes.'),
                     ]),
             ]);
+    }
+
+    /**
+     * @param  array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string}  $row
+     * @return array{field: string, oldPreview: string, oldRaw: string, newPreview: string, newRaw: string, removedSegment: ?string, addedSegment: ?string}
+     */
+    private static function decorateChangeRow(array $row): array
+    {
+        return [
+            ...$row,
+            'removedSegment' => self::diffSegment($row['oldRaw'], $row['newRaw'], 'old'),
+            'addedSegment' => self::diffSegment($row['newRaw'], $row['oldRaw'], 'new'),
+        ];
+    }
+
+    private static function diffSegment(string $value, string $comparison, string $tone): ?string
+    {
+        if ($value === $comparison) {
+            return null;
+        }
+
+        [, $segment] = match ($tone) {
+            'old' => self::splitDiff($value, $comparison),
+            'new' => self::splitDiff($value, $comparison),
+            default => self::splitDiff($value, $comparison),
+        };
+
+        return $segment !== '' ? $segment : null;
+    }
+
+    /**
+     * @return array{0: string, 1: string, 2: string}
+     */
+    private static function splitDiff(string $value, string $comparison): array
+    {
+        $prefixLength = 0;
+        $maxPrefixLength = min(strlen($value), strlen($comparison));
+
+        while ($prefixLength < $maxPrefixLength && $value[$prefixLength] === $comparison[$prefixLength]) {
+            $prefixLength++;
+        }
+
+        $valueSuffixIndex = strlen($value) - 1;
+        $comparisonSuffixIndex = strlen($comparison) - 1;
+        $suffixLength = 0;
+
+        while (
+            $valueSuffixIndex - $suffixLength >= $prefixLength
+            && $comparisonSuffixIndex - $suffixLength >= $prefixLength
+            && $value[$valueSuffixIndex - $suffixLength] === $comparison[$comparisonSuffixIndex - $suffixLength]
+        ) {
+            $suffixLength++;
+        }
+
+        $prefix = substr($value, 0, $prefixLength);
+        $middleLength = strlen($value) - $prefixLength - $suffixLength;
+        $middle = $middleLength > 0 ? substr($value, $prefixLength, $middleLength) : '';
+        $suffix = $suffixLength > 0 ? substr($value, -$suffixLength) : '';
+
+        return [$prefix, $middle, $suffix];
     }
 }
