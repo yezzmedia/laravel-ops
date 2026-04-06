@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Database\Eloquent\Model;
 use YezzMedia\Ops\Data\OpsRecentActivityItem;
 use YezzMedia\Ops\Data\OpsRecentActivitySummary;
 use YezzMedia\Ops\Support\ActivitylogRecentActivityReader;
@@ -9,6 +10,7 @@ use YezzMedia\Ops\Support\OpsRecentActivityCacheManager;
 use YezzMedia\Ops\Support\OpsRecentActivityResolver;
 
 it('returns an unavailable summary when no supported audit backend exists', function (): void {
+    config()->set('ops.integrations.audit.provider', null);
     app()->forgetInstance(OpsRecentActivityResolver::class);
 
     $summary = app(OpsRecentActivityResolver::class)->resolve();
@@ -60,4 +62,36 @@ it('returns a degraded summary when the activity backend cannot be read', functi
         ->and($summary->backend)->toBe('activitylog')
         ->and($summary->activityCount)->toBe(0)
         ->and($summary->latestDescription)->toBeNull();
+});
+
+it('uses old_values and new_values from audit properties when attribute changes are not present', function (): void {
+    $model = new class extends Model
+    {
+        protected $guarded = [];
+    };
+
+    $model->forceFill([
+        'properties' => [
+            'old_values' => [
+                'address_line_1' => 'Old Street 1',
+            ],
+            'new_values' => [
+                'address_line_1' => 'New Street 2',
+            ],
+        ],
+    ]);
+
+    $reader = new ActivitylogRecentActivityReader;
+    $method = new ReflectionMethod(ActivitylogRecentActivityReader::class, 'changesRows');
+    $method->setAccessible(true);
+
+    expect($method->invoke($reader, $model))->toBe([
+        [
+            'field' => 'address_line_1',
+            'oldPreview' => 'Old Street 1',
+            'oldRaw' => 'Old Street 1',
+            'newPreview' => 'New Street 2',
+            'newRaw' => 'New Street 2',
+        ],
+    ]);
 });

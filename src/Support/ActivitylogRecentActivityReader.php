@@ -132,12 +132,15 @@ class ActivitylogRecentActivityReader
     {
         $changes = $this->arrayValue($activity->getAttribute('attribute_changes'));
 
-        if ($changes === null) {
-            return [];
-        }
-
         $newAttributes = $this->arrayValue($changes['attributes'] ?? null) ?? [];
         $oldAttributes = $this->arrayValue($changes['old'] ?? null) ?? [];
+
+        if ($newAttributes === [] && $oldAttributes === []) {
+            $properties = $this->arrayValue($activity->getAttribute('properties')) ?? [];
+
+            $newAttributes = $this->arrayValue($properties['new_values'] ?? null) ?? [];
+            $oldAttributes = $this->arrayValue($properties['old_values'] ?? null) ?? [];
+        }
 
         if ($newAttributes === [] && $oldAttributes === []) {
             return [];
