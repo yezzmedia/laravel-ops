@@ -36,7 +36,13 @@ final class OpsPlatformPackage implements DefinesAuditEvents, DefinesPermissions
     public function permissionDefinitions(): array
     {
         return [
-            new PermissionDefinition('ops.panel.access', 'yezzmedia/laravel-ops', 'Access the ops panel', 'Enter the shared operations panel.'),
+            new PermissionDefinition(
+                'ops.panel.access',
+                'yezzmedia/laravel-ops',
+                'Access the ops panel',
+                'Enter the shared operations panel.',
+                defaultRoleHints: ['super-admin'],
+            ),
             new PermissionDefinition('ops.dashboard.view', 'yezzmedia/laravel-ops', 'View the ops dashboard', 'View dashboard-level operations posture and summaries.'),
             new PermissionDefinition('ops.packages.view', 'yezzmedia/laravel-ops', 'View installed packages', 'View installed package posture and readiness summaries.'),
             new PermissionDefinition('ops.features.view', 'yezzmedia/laravel-ops', 'View platform features', 'View feature-level platform status and ownership summaries.'),

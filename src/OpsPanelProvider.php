@@ -33,6 +33,7 @@ use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
+use YezzMedia\OpsSettings\Filament\OpsSettingsPlugin;
 
 /**
  * Defines the dedicated Filament panel shell for operator-facing workflows.
@@ -67,6 +68,7 @@ class OpsPanelProvider extends PanelProvider
                 FailingChecksWidget::class,
                 RecentActivityWidget::class,
             ])
+            ->when(class_exists(OpsSettingsPlugin::class), fn ($p) => $p->plugin(OpsSettingsPlugin::make()))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

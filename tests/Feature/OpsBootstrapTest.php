@@ -138,6 +138,7 @@ it('merges the package configuration', function (): void {
 it('describes the approved ops package surface', function (): void {
     $package = new OpsPlatformPackage;
     $metadata = $package->metadata();
+    $panelAccessPermission = collect($package->permissionDefinitions())->firstWhere('name', 'ops.panel.access');
 
     expect($package)->toBeInstanceOf(PlatformPackage::class)
         ->and($package)->toBeInstanceOf(DefinesPermissions::class)
@@ -146,6 +147,8 @@ it('describes the approved ops package surface', function (): void {
         ->and($metadata->name)->toBe('yezzmedia/laravel-ops')
         ->and($metadata->vendor)->toBe('yezzmedia')
         ->and($metadata->packageClass)->toBe(OpsPlatformPackage::class)
+        ->and($panelAccessPermission)->not->toBeNull()
+        ->and($panelAccessPermission?->defaultRoleHints)->toBe(['super-admin'])
         ->and($package->permissionDefinitions())->toHaveCount(9)
         ->and($package->featureDefinitions())->toHaveCount(5)
         ->and($package->auditEventDefinitions())->toHaveCount(3)
