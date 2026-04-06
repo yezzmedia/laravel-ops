@@ -30,7 +30,8 @@
     "suggest": {
         "spatie/laravel-activitylog": "Optional audit backend for audit-facing ops surfaces.",
         "spatie/laravel-health": "Optional health backend for diagnostics and readiness surfaces.",
-        "yezzmedia/laravel-access": "Preferred authorization owner for production-ready ops access and access-management workflows."
+        "yezzmedia/laravel-access": "Preferred authorization owner for production-ready ops access and access-management workflows.",
+        "yezzmedia/laravel-ops-settings": "Optional settings admin UI for operator-managed global settings."
     },
     "repositories": [
         {
