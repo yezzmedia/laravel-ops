@@ -26,6 +26,37 @@ final class OpsAccessBridge
 
     private const SUPER_ADMIN_SAFETY_GUARD = 'YezzMedia\\Access\\Support\\SuperAdminSafetyGuard';
 
+    private ?array $permissionOverviewMemo = null;
+
+    private ?array $managementOverviewMemo = null;
+
+    private ?array $accessStoreSnapshotMemo = null;
+
+    /**
+     * @var array<string, bool>
+     */
+    private array $tableExistsMemo = [];
+
+    /**
+     * @var list<string>|null
+     */
+    private ?array $persistedPermissionNamesMemo = null;
+
+    /**
+     * @var array<string, list<string>>|null
+     */
+    private ?array $roleRelationshipsMemo = null;
+
+    /**
+     * @var list<array{name: string, permissionCount: int, assignmentCount: int, permissionNames: list<string>}>|null
+     */
+    private ?array $roleSummariesMemo = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $roleAssignmentCountsMemo = null;
+
     public function __construct(
         private readonly PermissionRegistry $permissions,
         private readonly OpsIntegrationResolver $integrations,
@@ -44,37 +75,23 @@ final class OpsAccessBridge
      */
     public function permissionOverview(): array
     {
-        $store = [
-            'configPublished' => false,
-            'migrationsPublished' => false,
-            'pendingMigrations' => false,
-            'ready' => false,
-        ];
-        $available = false;
-        $error = null;
-
-        try {
-            $storeSetup = $this->resolveService(self::PERMISSION_STORE_SETUP);
-
-            if (! method_exists($storeSetup, 'configPublished') || ! method_exists($storeSetup, 'migrationsPublished') || ! method_exists($storeSetup, 'hasPendingPublishedMigrations') || ! method_exists($storeSetup, 'permissionStoreReady')) {
-                throw new RuntimeException('The access permission store runtime is incomplete.');
-            }
-
-            $store = [
-                'configPublished' => (bool) $storeSetup->configPublished(),
-                'migrationsPublished' => (bool) $storeSetup->migrationsPublished(),
-                'pendingMigrations' => (bool) $storeSetup->hasPendingPublishedMigrations(),
-                'ready' => (bool) $storeSetup->permissionStoreReady(),
-            ];
-            $available = true;
-        } catch (Throwable $exception) {
-            $error = $exception->getMessage();
+        if (is_array($this->permissionOverviewMemo)) {
+            return $this->permissionOverviewMemo;
         }
 
-        $persistedPermissionNames = $available ? $this->persistedPermissionNames() : [];
-        $roleRelationships = $available ? $this->roleRelationships() : [];
+        $storeSnapshot = $this->accessStoreSnapshot();
+        $store = $storeSnapshot['store'];
+        $available = $storeSnapshot['available'];
+        $error = $storeSnapshot['error'];
 
-        return [
+        $persistedPermissionNames = $available && $store['ready']
+            ? $this->persistedPermissionNames(skipTableCheck: true)
+            : [];
+        $roleRelationships = $available && $store['ready']
+            ? $this->roleRelationships(skipTableCheck: true)
+            : [];
+
+        return $this->permissionOverviewMemo = [
             'installed' => $this->integrations->resolve()->accessInstalled,
             'available' => $available,
             'error' => $error,
@@ -131,11 +148,19 @@ final class OpsAccessBridge
      */
     public function managementOverview(): array
     {
+        if (is_array($this->managementOverviewMemo)) {
+            return $this->managementOverviewMemo;
+        }
+
+        $storeSnapshot = $this->accessStoreSnapshot();
+
         try {
-            $roleSummaries = $this->roleSummaries();
+            $roleSummaries = $storeSnapshot['available'] && $storeSnapshot['store']['ready']
+                ? $this->roleSummaries()
+                : [];
             $superAdmin = $this->superAdminPosture();
 
-            return [
+            return $this->managementOverviewMemo = [
                 'installed' => $this->integrations->resolve()->accessInstalled,
                 'available' => true,
                 'error' => null,
@@ -143,7 +168,7 @@ final class OpsAccessBridge
                 'roles' => $roleSummaries,
             ];
         } catch (Throwable $exception) {
-            return [
+            return $this->managementOverviewMemo = [
                 'installed' => $this->integrations->resolve()->accessInstalled,
                 'available' => false,
                 'error' => $exception->getMessage(),
@@ -176,6 +201,8 @@ final class OpsAccessBridge
 
         $result = $storeSetup->synchronizePermissions();
 
+        $this->flushMemo();
+
         return sprintf(
             'Synchronized permissions across %d package(s); %d permission(s) were created and %d permission(s) were already present.',
             count($result->packageNames),
@@ -193,6 +220,8 @@ final class OpsAccessBridge
         }
 
         $roleNames = $roleManager->syncRolesFromPermissionHints($this->permissions->all()->all());
+
+        $this->flushMemo();
 
         if ($roleNames === []) {
             return 'No permission role hints were available to synchronize.';
@@ -216,6 +245,8 @@ final class OpsAccessBridge
         }
 
         $userRoleManager->assignRole($user, $roleName, $actor);
+
+        $this->flushMemo();
     }
 
     public function removeRole(int|string $userId, string $roleName, ?Authenticatable $actor = null): void
@@ -229,6 +260,8 @@ final class OpsAccessBridge
         }
 
         $userRoleManager->removeRole($user, $roleName, $actor);
+
+        $this->flushMemo();
     }
 
     /**
@@ -244,15 +277,19 @@ final class OpsAccessBridge
     /**
      * @return list<string>
      */
-    private function persistedPermissionNames(): array
+    private function persistedPermissionNames(bool $skipTableCheck = false): array
     {
-        $permissionModel = $this->permissionModel();
-
-        if ($permissionModel === null || ! $this->tableExists($this->permissionTable())) {
-            return [];
+        if (is_array($this->persistedPermissionNamesMemo)) {
+            return $this->persistedPermissionNamesMemo;
         }
 
-        return array_values($permissionModel::query()
+        $permissionModel = $this->permissionModel();
+
+        if ($permissionModel === null || (! $skipTableCheck && ! $this->tableExists($this->permissionTable()))) {
+            return $this->persistedPermissionNamesMemo = [];
+        }
+
+        return $this->persistedPermissionNamesMemo = array_values($permissionModel::query()
             ->orderBy('name')
             ->pluck('name')
             ->all());
@@ -261,15 +298,19 @@ final class OpsAccessBridge
     /**
      * @return array<string, list<string>>
      */
-    private function roleRelationships(): array
+    private function roleRelationships(bool $skipTableCheck = false): array
     {
-        $roleModel = $this->roleModel();
-
-        if ($roleModel === null || ! $this->tableExists($this->rolesTable())) {
-            return [];
+        if (is_array($this->roleRelationshipsMemo)) {
+            return $this->roleRelationshipsMemo;
         }
 
-        return $roleModel::query()
+        $roleModel = $this->roleModel();
+
+        if ($roleModel === null || (! $skipTableCheck && ! $this->tableExists($this->rolesTable()))) {
+            return $this->roleRelationshipsMemo = [];
+        }
+
+        return $this->roleRelationshipsMemo = $roleModel::query()
             ->orderBy('name')
             ->get()
             ->mapWithKeys(static function (Model $role): array {
@@ -287,15 +328,19 @@ final class OpsAccessBridge
      */
     private function roleSummaries(): array
     {
+        if (is_array($this->roleSummariesMemo)) {
+            return $this->roleSummariesMemo;
+        }
+
         $roleModel = $this->roleModel();
 
         if ($roleModel === null || ! $this->tableExists($this->rolesTable())) {
-            return [];
+            return $this->roleSummariesMemo = [];
         }
 
         $assignmentCounts = $this->roleAssignmentCounts();
 
-        return array_values($roleModel::query()
+        return $this->roleSummariesMemo = array_values($roleModel::query()
             ->orderBy('name')
             ->get()
             ->map(function (Model $role) use ($assignmentCounts): array {
@@ -319,13 +364,17 @@ final class OpsAccessBridge
      */
     private function roleAssignmentCounts(): array
     {
+        if (is_array($this->roleAssignmentCountsMemo)) {
+            return $this->roleAssignmentCountsMemo;
+        }
+
         $table = $this->modelHasRolesTable();
 
         if (! $this->tableExists($table)) {
-            return [];
+            return $this->roleAssignmentCountsMemo = [];
         }
 
-        return DB::table($table)
+        return $this->roleAssignmentCountsMemo = DB::table($table)
             ->select($this->rolePivotKey())
             ->selectRaw('count(*) as aggregate')
             ->groupBy($this->rolePivotKey())
@@ -455,7 +504,15 @@ final class OpsAccessBridge
 
     private function tableExists(string $table): bool
     {
-        return $table !== '' && Schema::hasTable($table);
+        if ($table === '') {
+            return false;
+        }
+
+        if (array_key_exists($table, $this->tableExistsMemo)) {
+            return $this->tableExistsMemo[$table];
+        }
+
+        return $this->tableExistsMemo[$table] = Schema::hasTable($table);
     }
 
     private function permissionTable(): string
@@ -483,5 +540,70 @@ final class OpsAccessBridge
         $value = config($key);
 
         return is_string($value) && $value !== '' ? $value : $fallback;
+    }
+
+    /**
+     * @return array{
+     *     available: bool,
+     *     error: ?string,
+     *     store: array{configPublished: bool, migrationsPublished: bool, pendingMigrations: bool, ready: bool}
+     * }
+     */
+    private function accessStoreSnapshot(): array
+    {
+        if (is_array($this->accessStoreSnapshotMemo)) {
+            return $this->accessStoreSnapshotMemo;
+        }
+
+        $store = [
+            'configPublished' => false,
+            'migrationsPublished' => false,
+            'pendingMigrations' => false,
+            'ready' => false,
+        ];
+        $available = false;
+        $error = null;
+
+        try {
+            $storeSetup = $this->resolveService(self::PERMISSION_STORE_SETUP);
+
+            if (! method_exists($storeSetup, 'configPublished') || ! method_exists($storeSetup, 'migrationsPublished') || ! method_exists($storeSetup, 'hasPendingPublishedMigrations') || ! method_exists($storeSetup, 'permissionStoreReady')) {
+                throw new RuntimeException('The access permission store runtime is incomplete.');
+            }
+
+            $store = [
+                'configPublished' => (bool) $storeSetup->configPublished(),
+                'migrationsPublished' => (bool) $storeSetup->migrationsPublished(),
+                'pendingMigrations' => (bool) $storeSetup->hasPendingPublishedMigrations(),
+                'ready' => (bool) $storeSetup->permissionStoreReady(),
+            ];
+            $available = true;
+
+            if ($store['ready']) {
+                $this->tableExistsMemo[$this->permissionTable()] = true;
+                $this->tableExistsMemo[$this->rolesTable()] = true;
+                $this->tableExistsMemo[$this->modelHasRolesTable()] = true;
+            }
+        } catch (Throwable $exception) {
+            $error = $exception->getMessage();
+        }
+
+        return $this->accessStoreSnapshotMemo = [
+            'available' => $available,
+            'error' => $error,
+            'store' => $store,
+        ];
+    }
+
+    private function flushMemo(): void
+    {
+        $this->permissionOverviewMemo = null;
+        $this->managementOverviewMemo = null;
+        $this->accessStoreSnapshotMemo = null;
+        $this->tableExistsMemo = [];
+        $this->persistedPermissionNamesMemo = null;
+        $this->roleRelationshipsMemo = null;
+        $this->roleSummariesMemo = null;
+        $this->roleAssignmentCountsMemo = null;
     }
 }

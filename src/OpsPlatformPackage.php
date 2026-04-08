@@ -6,6 +6,8 @@ namespace YezzMedia\Ops;
 
 use YezzMedia\Foundation\Contracts\DefinesAuditEvents;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
+use YezzMedia\Foundation\Contracts\DefinesSecurityRequests;
+use YezzMedia\Foundation\Contracts\DefinesSecurityRequirements;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
@@ -14,11 +16,13 @@ use YezzMedia\Foundation\Data\FeatureDefinition;
 use YezzMedia\Foundation\Data\OpsModuleDefinition;
 use YezzMedia\Foundation\Data\PackageMetadata;
 use YezzMedia\Foundation\Data\PermissionDefinition;
+use YezzMedia\Foundation\Data\SecurityRequestDefinition;
+use YezzMedia\Foundation\Data\SecurityRequirementDefinition;
 
 /**
  * Describes the stable ops-owned package surface for foundation registration.
  */
-final class OpsPlatformPackage implements DefinesAuditEvents, DefinesPermissions, PlatformPackage, ProvidesOpsModules, RegistersFeatures
+final class OpsPlatformPackage implements DefinesAuditEvents, DefinesPermissions, DefinesSecurityRequests, DefinesSecurityRequirements, PlatformPackage, ProvidesOpsModules, RegistersFeatures
 {
     public function metadata(): PackageMetadata
     {
@@ -135,5 +139,52 @@ final class OpsPlatformPackage implements DefinesAuditEvents, DefinesPermissions
     public function opsModuleDefinitions(): array
     {
         return [];
+    }
+
+    /**
+     * @return array<int, SecurityRequestDefinition>
+     */
+    public function securityRequestDefinitions(): array
+    {
+        return [
+            new SecurityRequestDefinition(
+                key: 'ops.request.auth.login-throttle',
+                package: 'yezzmedia/laravel-ops',
+                domain: 'auth',
+                control: 'login_throttle',
+                scope: 'ops-panel',
+                requestedLevel: 'required',
+                requestedEnforcementMode: 'observe_only',
+                description: 'The ops panel should expose operator login throttling as a declared control for central security review.',
+                payloadSchema: [
+                    'panel' => 'Target panel identifier.',
+                    'guard' => 'Resolved authentication guard for operator access.',
+                    'provider' => 'Login provider or entry surface.',
+                ],
+                allowedPreviewFields: ['panel', 'guard', 'provider'],
+                notes: 'The current ops package declares operator login throttling intent and leaves runtime verification to ops-security.',
+            ),
+        ];
+    }
+
+    /**
+     * @return array<int, SecurityRequirementDefinition>
+     */
+    public function securityRequirementDefinitions(): array
+    {
+        return [
+            new SecurityRequirementDefinition(
+                key: 'ops.auth.login-throttle',
+                package: 'yezzmedia/laravel-ops',
+                domain: 'auth',
+                control: 'login_throttle',
+                level: 'required',
+                scope: 'ops-panel',
+                description: 'Operator login entry points should be protected by login throttling.',
+                enforcementMode: 'observe_only',
+                appliesTo: ['ops-panel', 'login'],
+                notes: 'The ops package declares the requirement while governance verification determines whether the active auth runtime satisfies it.',
+            ),
+        ];
     }
 }

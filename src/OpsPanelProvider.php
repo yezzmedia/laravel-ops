@@ -33,6 +33,8 @@ use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
+use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
+use YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin;
 use YezzMedia\OpsSettings\Filament\OpsSettingsPlugin;
 
 /**
@@ -68,6 +70,8 @@ class OpsPanelProvider extends PanelProvider
                 FailingChecksWidget::class,
                 RecentActivityWidget::class,
             ])
+            ->when(class_exists(OpsInfrastructurePlugin::class), fn ($p) => $p->plugin(OpsInfrastructurePlugin::make()))
+            ->when(class_exists(OpsSecurityFilamentPlugin::class), fn ($p) => $p->plugin(OpsSecurityFilamentPlugin::make()))
             ->when(class_exists(OpsSettingsPlugin::class), fn ($p) => $p->plugin(OpsSettingsPlugin::make()))
             ->middleware([
                 EncryptCookies::class,

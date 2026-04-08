@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Filament\PanelRegistry;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
+use YezzMedia\Foundation\Contracts\DefinesSecurityRequests;
+use YezzMedia\Foundation\Contracts\DefinesSecurityRequirements;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
 use YezzMedia\Foundation\Contracts\ProvidesOpsModules;
 use YezzMedia\Foundation\Contracts\RegistersFeatures;
@@ -11,6 +13,8 @@ use YezzMedia\Foundation\Registry\FeatureRegistry;
 use YezzMedia\Foundation\Registry\OpsModuleRegistry;
 use YezzMedia\Foundation\Registry\PackageRegistry;
 use YezzMedia\Foundation\Registry\PermissionRegistry;
+use YezzMedia\Foundation\Registry\SecurityRequestRegistry;
+use YezzMedia\Foundation\Registry\SecurityRequirementRegistry;
 use YezzMedia\Ops\Actions\RefreshAuditSnapshotAction;
 use YezzMedia\Ops\Actions\RunSystemDiagnosticsAction;
 use YezzMedia\Ops\Contracts\OpsAuditWriter;
@@ -49,6 +53,7 @@ use YezzMedia\Ops\Support\OpsSurfaceVisibilityResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
+use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
 
 it('registers the ops bootstrap surface', function (): void {
     $panel = app(PanelRegistry::class)->get('ops');
@@ -85,6 +90,12 @@ it('registers the ops bootstrap surface', function (): void {
             'ops.audit',
         ])
         ->and(app(OpsModuleRegistry::class)->forPackage('yezzmedia/laravel-ops'))->toHaveCount(0)
+        ->and(app(SecurityRequestRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('key')->all())->toBe([
+            'ops.request.auth.login-throttle',
+        ])
+        ->and(app(SecurityRequirementRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('key')->all())->toBe([
+            'ops.auth.login-throttle',
+        ])
         ->and(app(PermissionRegistry::class)->forPackage('yezzmedia/laravel-ops')->pluck('name')->all())->toBe([
             'ops.panel.access',
             'ops.dashboard.view',
@@ -100,6 +111,8 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getId())->toBe('ops')
         ->and($panel?->getPath())->toBe('ops')
         ->and($panel?->getAuthGuard())->toBe('web')
+        ->and($panel?->hasPlugin('ops-infrastructure'))->toBeTrue()
+        ->and($panel?->getPlugin('ops-infrastructure'))->toBeInstanceOf(OpsInfrastructurePlugin::class)
         ->and($panel?->getPages())->toContain(OpsDashboard::class)
         ->and($panel?->getPages())->toContain(PackagesPage::class)
         ->and($panel?->getPages())->toContain(PackageDetailsPage::class)
@@ -142,6 +155,8 @@ it('describes the approved ops package surface', function (): void {
 
     expect($package)->toBeInstanceOf(PlatformPackage::class)
         ->and($package)->toBeInstanceOf(DefinesPermissions::class)
+        ->and($package)->toBeInstanceOf(DefinesSecurityRequests::class)
+        ->and($package)->toBeInstanceOf(DefinesSecurityRequirements::class)
         ->and($package)->toBeInstanceOf(ProvidesOpsModules::class)
         ->and($package)->toBeInstanceOf(RegistersFeatures::class)
         ->and($metadata->name)->toBe('yezzmedia/laravel-ops')
@@ -152,5 +167,11 @@ it('describes the approved ops package surface', function (): void {
         ->and($package->permissionDefinitions())->toHaveCount(9)
         ->and($package->featureDefinitions())->toHaveCount(5)
         ->and($package->auditEventDefinitions())->toHaveCount(3)
-        ->and($package->opsModuleDefinitions())->toBe([]);
+        ->and($package->opsModuleDefinitions())->toBe([])
+        ->and(collect($package->securityRequestDefinitions())->pluck('key')->all())->toBe([
+            'ops.request.auth.login-throttle',
+        ])
+        ->and(collect($package->securityRequirementDefinitions())->pluck('key')->all())->toBe([
+            'ops.auth.login-throttle',
+        ]);
 });
