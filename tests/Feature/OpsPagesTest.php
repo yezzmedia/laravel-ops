@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Filament\Tables\Table;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use YezzMedia\Access\AccessPlatformPackage;
 use YezzMedia\Foundation\Contracts\DefinesPermissions;
 use YezzMedia\Foundation\Contracts\PlatformPackage;
@@ -1063,4 +1064,28 @@ it('loads the access pages when access integration is active and the operator ha
     expect($accessManagementPage->overview)->toHaveKeys(['installed', 'available', 'error', 'superAdmin', 'roles'])
         ->and($accessManagementHeroSummary)->toHaveKeys(['eyebrow', 'heading', 'description', 'metrics', 'actions'])
         ->and($accessManagementTable->getHeading())->toBe('Persisted roles');
+});
+
+it('reuses access store checks across the permissions page overview', function (): void {
+    app(PlatformPackageRegistrar::class)->register(new AccessPlatformPackage);
+
+    $user = TestOpsUser::fixture([
+        'ops.panel.access',
+        'ops.access.view',
+        'ops.access.manage',
+    ]);
+
+    auth()->guard('web')->login($user);
+
+    $page = app(PermissionsPage::class);
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $page->mount();
+
+    $queries = collect(DB::getQueryLog())->pluck('query');
+
+    expect($queries->filter(fn (string $query): bool => str_contains($query, "name = 'permissions'") && str_contains($query, 'sqlite_master'))->count())->toBeLessThanOrEqual(1)
+        ->and($queries->filter(fn (string $query): bool => str_contains($query, "name = 'roles'") && str_contains($query, 'sqlite_master'))->count())->toBeLessThanOrEqual(1);
 });
