@@ -64,6 +64,10 @@ return [
 - uses the configured or resolved host auth guard
 - applies a dedicated ops authorization middleware boundary
 - registers the stable V1 ops pages and widgets
+- conditionally loads companion plugins when the corresponding packages are installed:
+  - `YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin`
+  - `YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin`
+  - `YezzMedia\OpsSettings\Filament\OpsSettingsPlugin`
 
 ### Stable ops pages
 
@@ -76,6 +80,14 @@ The package currently provides these operator-facing pages:
 - `AuditTrailPage`
 - `PermissionsPage`
 - `AccessManagementPage`
+
+The panel also registers detail pages that support drill-down workflows without adding extra top-level navigation entries:
+
+- `PackageDetailsPage`
+- `DoctorCheckDetailsPage`
+- `RoleDetailsPage`
+- `PermissionDetailsPage`
+- `AuditEntryDetailsPage`
 
 These surface the following routes:
 
@@ -151,6 +163,11 @@ That package descriptor currently provides:
 - package metadata for `yezzmedia/laravel-ops`
 - the stable ops permission declarations
 - an explicit ops-module surface, currently empty for V1
+- security-governance declarations for the ops authentication entry point:
+  - request `ops.request.auth.login-throttle`
+  - requirement `ops.auth.login-throttle`
+
+These declarations are intentionally observe-only. Ops declares the required operator login-throttle posture, while verification stays in `yezzmedia/laravel-ops-security` and concrete runtime enforcement stays in the host auth and middleware layer.
 
 ## Development
 
