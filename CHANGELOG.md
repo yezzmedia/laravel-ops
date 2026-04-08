@@ -4,6 +4,28 @@ All notable changes to `yezzmedia/laravel-ops` will be documented in this file.
 
 The format is based on Keep a Changelog and this package follows Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+
+- security-governance declarations through foundation:
+  - `ops.request.auth.login-throttle`
+  - `ops.auth.login-throttle`
+- conditional panel plugin loading for:
+  - `yezzmedia/laravel-ops-security`
+  - `yezzmedia/laravel-ops-infrastructure`
+  - `yezzmedia/laravel-ops-settings`
+- regression coverage for reusing access-store readiness checks across the permissions overview
+
+### Changed
+
+- access overview reads now reuse access-store snapshots so the permissions page avoids duplicate readiness checks in the same request
+- the panel surface now includes package, doctor, role, permission, and audit-entry detail pages as part of the supported operator workflow
+
+### Documentation
+
+- documented the security-governance declarations, conditional companion plugin loading, and the full supported page inventory in the package README
+
 ## [0.1.0] - 2026-03-31
 
 ### Added
