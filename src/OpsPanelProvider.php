@@ -36,6 +36,7 @@ use YezzMedia\Ops\Widgets\RecentActivityWidget;
 use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
 use YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin;
 use YezzMedia\OpsSettings\Filament\OpsSettingsPlugin;
+use YezzMedia\OpsSites\Filament\OpsSitesFilamentPlugin;
 
 /**
  * Defines the dedicated Filament panel shell for operator-facing workflows.
@@ -71,6 +72,7 @@ class OpsPanelProvider extends PanelProvider
                 RecentActivityWidget::class,
             ])
             ->when(class_exists(OpsInfrastructurePlugin::class), fn ($p) => $p->plugin(OpsInfrastructurePlugin::make()))
+            ->when(class_exists(OpsSitesFilamentPlugin::class), fn ($p) => $p->plugin(OpsSitesFilamentPlugin::make()))
             ->when(class_exists(OpsSecurityFilamentPlugin::class), fn ($p) => $p->plugin(OpsSecurityFilamentPlugin::make()))
             ->when(class_exists(OpsSettingsPlugin::class), fn ($p) => $p->plugin(OpsSettingsPlugin::make()))
             ->middleware([
