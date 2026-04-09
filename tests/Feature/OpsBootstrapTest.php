@@ -54,6 +54,7 @@ use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
 use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
+use YezzMedia\OpsSites\Filament\OpsSitesFilamentPlugin;
 
 it('registers the ops bootstrap surface', function (): void {
     $panel = app(PanelRegistry::class)->get('ops');
@@ -113,6 +114,8 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getAuthGuard())->toBe('web')
         ->and($panel?->hasPlugin('ops-infrastructure'))->toBeTrue()
         ->and($panel?->getPlugin('ops-infrastructure'))->toBeInstanceOf(OpsInfrastructurePlugin::class)
+        ->and($panel?->hasPlugin('ops-sites'))->toBeTrue()
+        ->and($panel?->getPlugin('ops-sites'))->toBeInstanceOf(OpsSitesFilamentPlugin::class)
         ->and($panel?->getPages())->toContain(OpsDashboard::class)
         ->and($panel?->getPages())->toContain(PackagesPage::class)
         ->and($panel?->getPages())->toContain(PackageDetailsPage::class)
