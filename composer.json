@@ -31,7 +31,10 @@
         "spatie/laravel-activitylog": "Optional audit backend for audit-facing ops surfaces.",
         "spatie/laravel-health": "Optional health backend for diagnostics and readiness surfaces.",
         "yezzmedia/laravel-access": "Preferred authorization owner for production-ready ops access and access-management workflows.",
+        "yezzmedia/laravel-ops-analytics": "Optional analytics posture and tracker module for the shared ops panel.",
+        "yezzmedia/laravel-ops-backups": "Optional backup posture and restore-readiness module for the shared ops panel.",
         "yezzmedia/laravel-ops-infrastructure": "Optional live infrastructure posture module for the shared ops panel.",
+        "yezzmedia/laravel-ops-sites": "Optional site inventory and assignment posture module for the shared ops panel.",
         "yezzmedia/laravel-ops-security": "Optional security posture and governance module for the shared ops panel.",
         "yezzmedia/laravel-ops-settings": "Optional settings admin UI for operator-managed global settings."
     },

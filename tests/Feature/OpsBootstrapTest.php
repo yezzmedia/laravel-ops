@@ -53,6 +53,8 @@ use YezzMedia\Ops\Support\OpsSurfaceVisibilityResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
+use YezzMedia\OpsAnalytics\Filament\OpsAnalyticsFilamentPlugin;
+use YezzMedia\OpsBackups\Filament\OpsBackupsFilamentPlugin;
 use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
 use YezzMedia\OpsSites\Filament\OpsSitesFilamentPlugin;
 
@@ -112,6 +114,10 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getId())->toBe('ops')
         ->and($panel?->getPath())->toBe('ops')
         ->and($panel?->getAuthGuard())->toBe('web')
+        ->and($panel?->hasPlugin('ops-analytics'))->toBeTrue()
+        ->and($panel?->getPlugin('ops-analytics'))->toBeInstanceOf(OpsAnalyticsFilamentPlugin::class)
+        ->and($panel?->hasPlugin('ops-backups'))->toBeTrue()
+        ->and($panel?->getPlugin('ops-backups'))->toBeInstanceOf(OpsBackupsFilamentPlugin::class)
         ->and($panel?->hasPlugin('ops-infrastructure'))->toBeTrue()
         ->and($panel?->getPlugin('ops-infrastructure'))->toBeInstanceOf(OpsInfrastructurePlugin::class)
         ->and($panel?->hasPlugin('ops-sites'))->toBeTrue()
