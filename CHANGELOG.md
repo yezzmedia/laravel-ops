@@ -12,8 +12,11 @@ The format is based on Keep a Changelog and this package follows Semantic Versio
   - `ops.request.auth.login-throttle`
   - `ops.auth.login-throttle`
 - conditional panel plugin loading for:
+  - `yezzmedia/laravel-ops-analytics`
+  - `yezzmedia/laravel-ops-backups`
   - `yezzmedia/laravel-ops-security`
   - `yezzmedia/laravel-ops-infrastructure`
+  - `yezzmedia/laravel-ops-sites`
   - `yezzmedia/laravel-ops-settings`
 - regression coverage for reusing access-store readiness checks across the permissions overview
 
@@ -24,7 +27,7 @@ The format is based on Keep a Changelog and this package follows Semantic Versio
 
 ### Documentation
 
-- documented the security-governance declarations, conditional companion plugin loading, and the full supported page inventory in the package README
+- documented the security-governance declarations, complete conditional companion plugin loading surface, optional companion package suggestions, and the full supported page inventory in the package README
 
 ## [0.1.0] - 2026-03-31
 

@@ -33,6 +33,8 @@ use YezzMedia\Ops\Support\OpsGuardResolver;
 use YezzMedia\Ops\Widgets\FailingChecksWidget;
 use YezzMedia\Ops\Widgets\InstalledPackagesWidget;
 use YezzMedia\Ops\Widgets\RecentActivityWidget;
+use YezzMedia\OpsAnalytics\Filament\OpsAnalyticsFilamentPlugin;
+use YezzMedia\OpsBackups\Filament\OpsBackupsFilamentPlugin;
 use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
 use YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin;
 use YezzMedia\OpsSettings\Filament\OpsSettingsPlugin;
@@ -71,6 +73,8 @@ class OpsPanelProvider extends PanelProvider
                 FailingChecksWidget::class,
                 RecentActivityWidget::class,
             ])
+            ->when(class_exists(OpsAnalyticsFilamentPlugin::class), fn ($p) => $p->plugin(OpsAnalyticsFilamentPlugin::make()))
+            ->when(class_exists(OpsBackupsFilamentPlugin::class), fn ($p) => $p->plugin(OpsBackupsFilamentPlugin::make()))
             ->when(class_exists(OpsInfrastructurePlugin::class), fn ($p) => $p->plugin(OpsInfrastructurePlugin::make()))
             ->when(class_exists(OpsSitesFilamentPlugin::class), fn ($p) => $p->plugin(OpsSitesFilamentPlugin::make()))
             ->when(class_exists(OpsSecurityFilamentPlugin::class), fn ($p) => $p->plugin(OpsSecurityFilamentPlugin::make()))

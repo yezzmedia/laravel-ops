@@ -44,6 +44,8 @@ Keep this resolver as the canonical mapping surface. Avoid duplicating these rul
 
 The ops panel may attach these plugins when their classes exist:
 
+- analytics
+- backups
 - infrastructure
 - sites
 - security

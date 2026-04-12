@@ -21,6 +21,12 @@ Optional:
 - `yezzmedia/laravel-access ^0.1` for the preferred ops authorization and access-management workflows
 - `spatie/laravel-activitylog` for audit-facing surfaces
 - `spatie/laravel-health` for richer diagnostics posture
+- `yezzmedia/laravel-ops-analytics ^0.1` for analytics posture, tracker, and consent-aware surfaces inside the shared ops panel
+- `yezzmedia/laravel-ops-backups ^0.1` for backup posture and restore-readiness surfaces inside the shared ops panel
+- `yezzmedia/laravel-ops-infrastructure ^0.1` for infrastructure posture inside the shared ops panel
+- `yezzmedia/laravel-ops-sites ^0.1` for site inventory and assignment posture inside the shared ops panel
+- `yezzmedia/laravel-ops-security ^0.1` for security posture and governance surfaces inside the shared ops panel
+- `yezzmedia/laravel-ops-settings` for operator-managed settings UI inside the shared ops panel
 
 ## Installation
 
@@ -65,7 +71,10 @@ return [
 - applies a dedicated ops authorization middleware boundary
 - registers the stable V1 ops pages and widgets
 - conditionally loads companion plugins when the corresponding packages are installed:
+  - `YezzMedia\OpsAnalytics\Filament\OpsAnalyticsFilamentPlugin`
+  - `YezzMedia\OpsBackups\Filament\OpsBackupsFilamentPlugin`
   - `YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin`
+  - `YezzMedia\OpsSites\Filament\OpsSitesFilamentPlugin`
   - `YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin`
   - `YezzMedia\OpsSettings\Filament\OpsSettingsPlugin`
 
