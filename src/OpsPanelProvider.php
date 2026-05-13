@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace YezzMedia\Ops;
 
+use Filament\Contracts\Plugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -54,20 +55,8 @@ class OpsPanelProvider extends PanelProvider
             ->path($this->panelPath())
             ->login()
             ->authGuard($opsAccess['guard'])
-            ->pages([
-                OpsDashboard::class,
-                PackagesPage::class,
-                PackageDetailsPage::class,
-                FeaturesPage::class,
-                SystemHealthPage::class,
-                DoctorCheckDetailsPage::class,
-                PermissionsPage::class,
-                RoleDetailsPage::class,
-                PermissionDetailsPage::class,
-                AccessManagementPage::class,
-                AuditTrailPage::class,
-                AuditEntryDetailsPage::class,
-            ])
+            ->when($this->resolveOptionalPlugin('YezzMedia\\Panels\\Filament\\PanelsPlugin') instanceof Plugin, fn ($p) => $p->plugin($this->resolveOptionalPlugin('YezzMedia\\Panels\\Filament\\PanelsPlugin')))
+            ->pages($this->pages())
             ->widgets([
                 InstalledPackagesWidget::class,
                 FailingChecksWidget::class,
@@ -96,6 +85,27 @@ class OpsPanelProvider extends PanelProvider
             ], isPersistent: true);
     }
 
+    /**
+     * @return array<int, class-string>
+     */
+    private function pages(): array
+    {
+        return [
+            OpsDashboard::class,
+            PackagesPage::class,
+            PackageDetailsPage::class,
+            FeaturesPage::class,
+            SystemHealthPage::class,
+            DoctorCheckDetailsPage::class,
+            PermissionsPage::class,
+            RoleDetailsPage::class,
+            PermissionDetailsPage::class,
+            AccessManagementPage::class,
+            AuditTrailPage::class,
+            AuditEntryDetailsPage::class,
+        ];
+    }
+
     private function panelId(): string
     {
         $panelId = config('ops.panel.id', 'ops');
@@ -108,5 +118,16 @@ class OpsPanelProvider extends PanelProvider
         $panelPath = config('ops.panel.path', 'ops');
 
         return is_string($panelPath) && $panelPath !== '' ? $panelPath : 'ops';
+    }
+
+    private function resolveOptionalPlugin(string $pluginClass): ?Plugin
+    {
+        if (! class_exists($pluginClass)) {
+            return null;
+        }
+
+        $plugin = app($pluginClass);
+
+        return $plugin instanceof Plugin ? $plugin : null;
     }
 }
