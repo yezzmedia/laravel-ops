@@ -126,6 +126,7 @@ it('registers the ops bootstrap surface', function (): void {
         ->and($panel?->getPages())->toContain(PackagesPage::class)
         ->and($panel?->getPages())->toContain(PackageDetailsPage::class)
         ->and($panel?->getPages())->toContain(FeaturesPage::class)
+        ->and($panel?->getPages())->not->toContain('YezzMedia\\Panels\\Filament\\Pages\\PanelsShowroomPage')
         ->and($panel?->getPages())->toContain(SystemHealthPage::class)
         ->and($panel?->getPages())->toContain(PermissionsPage::class)
         ->and($panel?->getPages())->toContain(PermissionDetailsPage::class)
