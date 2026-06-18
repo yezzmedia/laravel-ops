@@ -17,6 +17,7 @@ use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use YezzMedia\Consent\Filament\ConsentOpsPlugin;
 use YezzMedia\Ops\Http\Middleware\AuthorizeOpsPanelAccess;
 use YezzMedia\Ops\Pages\AccessManagementPage;
 use YezzMedia\Ops\Pages\AuditEntryDetailsPage;
@@ -40,6 +41,7 @@ use YezzMedia\OpsInfrastructure\Filament\OpsInfrastructurePlugin;
 use YezzMedia\OpsSecurity\Filament\OpsSecurityFilamentPlugin;
 use YezzMedia\OpsSettings\Filament\OpsSettingsPlugin;
 use YezzMedia\OpsSites\Filament\OpsSitesFilamentPlugin;
+use YezzMedia\UserSupport\Filament\UserSupportOpsPlugin;
 
 /**
  * Defines the dedicated Filament panel shell for operator-facing workflows.
@@ -68,6 +70,8 @@ class OpsPanelProvider extends PanelProvider
             ->when(class_exists(OpsSitesFilamentPlugin::class), fn ($p) => $p->plugin(OpsSitesFilamentPlugin::make()))
             ->when(class_exists(OpsSecurityFilamentPlugin::class), fn ($p) => $p->plugin(OpsSecurityFilamentPlugin::make()))
             ->when(class_exists(OpsSettingsPlugin::class), fn ($p) => $p->plugin(OpsSettingsPlugin::make()))
+            ->when(class_exists(ConsentOpsPlugin::class), fn ($p) => $p->plugin(ConsentOpsPlugin::make()))
+            ->when(class_exists(UserSupportOpsPlugin::class), fn ($p) => $p->plugin(UserSupportOpsPlugin::make()))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,
