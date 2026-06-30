@@ -1,6 +1,6 @@
 {
     "name": "yezzmedia/laravel-ops",
-    "version": "0.1.1",
+    "version": "0.2.0",
     "description": "Shared operations panel package for the Yezz Media Laravel website platform.",
     "type": "library",
     "license": "MIT",
@@ -16,7 +16,7 @@
         "illuminate/contracts": "^13.0",
         "illuminate/support": "^13.0",
         "spatie/laravel-package-tools": "^1.93",
-        "yezzmedia/laravel-foundation": "^0.1.1"
+        "yezzmedia/laravel-foundation": "^0.2"
     },
     "require-dev": {
         "larastan/larastan": "^3.0",
@@ -25,7 +25,7 @@
         "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0",
-        "yezzmedia/laravel-access": "^0.1"
+        "yezzmedia/laravel-access": "^0.2"
     },
     "suggest": {
         "spatie/laravel-activitylog": "Optional audit backend for audit-facing ops surfaces.",
