@@ -1,3 +1,18 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/yezzmedia/.github/main/profile/yezzmedia-dark.svg">
+    <img src="https://raw.githubusercontent.com/yezzmedia/.github/main/profile/yezzmedia-light.svg" alt="Yezz Media" height="40">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://packagist.org/packages/yezzmedia/laravel-ops"><img src="https://img.shields.io/packagist/v/yezzmedia/laravel-ops?style=flat-square" alt="Latest Version"></a>
+  <a href="https://packagist.org/packages/yezzmedia/laravel-ops"><img src="https://img.shields.io/packagist/php-v/yezzmedia/laravel-ops?style=flat-square" alt="PHP Version"></a>
+  <a href="https://packagist.org/packages/yezzmedia/laravel-ops"><img src="https://img.shields.io/packagist/l/yezzmedia/laravel-ops?style=flat-square" alt="License"></a>
+</p>
+
+---
+
 # Laravel Ops
 
 `yezzmedia/laravel-ops` is the shared operations panel package for the Yezz Media Laravel platform.
@@ -6,7 +21,7 @@ It provides a Filament-based `/ops` panel with package, feature, diagnostics, au
 
 ## Version
 
-Current release: `0.1.0`
+Current release: `0.2.0`
 
 ## Requirements
 

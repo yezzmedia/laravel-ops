@@ -29,6 +29,12 @@ The format is based on Keep a Changelog and this package follows Semantic Versio
 
 - documented the security-governance declarations, complete conditional companion plugin loading surface, optional companion package suggestions, and the full supported page inventory in the package README
 
+## [0.2.0] - 2026-06-30
+
+### Changed
+
+- Bumped minimum `yezzmedia/laravel-foundation` dependency to `^0.2`
+
 ## [0.1.1] - 2026-04-12
 
 ### Fixed
